@@ -33,7 +33,7 @@ Gebruik voor het onderzochte systeem:
 - Verversingsinterval: `30` seconden
 - Timeout: `5` seconden
 
-## Versie 0.2.2
+## Versie 0.2.3
 
 Deze versie verbetert vooral de betrouwbaarheid en foutdiagnose:
 
@@ -65,3 +65,8 @@ MIT
 ### Registerlezing
 
 De logger wordt in blokken van 10 registers gelezen. Niet-ondersteunde adresblokken worden veilig overgeslagen.
+
+
+### Bevestigde registertest
+
+Op het testsysteem zijn 131 registerwaarden gelezen uit 33000–33139.

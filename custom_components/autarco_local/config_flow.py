@@ -47,7 +47,7 @@ def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _validate_input(data: dict[str, Any]) -> None:
+async def _validate_input(hass, data: dict[str, Any]) -> None:
     """Validate user input with a read-only Modbus request."""
     settings = AutarcoConnectionSettings(
         host=data[CONF_HOST],
@@ -55,7 +55,7 @@ async def _validate_input(data: dict[str, Any]) -> None:
         device_id=data[CONF_DEVICE_ID],
         timeout=data[CONF_TIMEOUT],
     )
-    await AutarcoModbusClient(settings).async_validate()
+    await hass.async_add_executor_job(AutarcoModbusClient(settings).validate)
 
 
 def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -144,7 +144,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
 
             try:
-                await _validate_input(data)
+                await _validate_input(self.hass, data)
             except AutarcoConnectionError as err:
                 _LOGGER.warning(
                     "Kan Autarco op %s:%s niet bereiken: %s",
@@ -182,7 +182,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             data = _normalize_input(user_input)
 
             try:
-                await _validate_input(data)
+                await _validate_input(self.hass, data)
             except AutarcoConnectionError as err:
                 _LOGGER.warning(
                     "Kan Autarco tijdens herconfiguratie niet bereiken: %s",

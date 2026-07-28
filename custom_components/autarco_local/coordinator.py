@@ -65,7 +65,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
     async def _async_update_data(self) -> dict[int, int]:
         """Fetch data from the inverter."""
         try:
-            return await self.client.async_read_all()
+            return await self.hass.async_add_executor_job(self.client.read_all)
         except AutarcoConnectionError as err:
             raise UpdateFailed(
                 translation_domain=DOMAIN,

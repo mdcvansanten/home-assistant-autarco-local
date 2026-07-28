@@ -1,12 +1,12 @@
-"""Read-only Modbus TCP client for Autarco Local."""
+"""Synchronous, read-only Modbus TCP client for Autarco Local."""
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass
 import logging
+from threading import Lock
 
-from pymodbus.client import AsyncModbusTcpClient
+from pymodbus.client import ModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
 from .const import (
@@ -21,7 +21,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class AutarcoConnectionError(Exception):
-    """Raised when the inverter cannot be contacted or no data is readable."""
+    """Raised when the inverter cannot be contacted or read."""
 
 
 @dataclass(slots=True, frozen=True)
@@ -35,35 +35,34 @@ class AutarcoConnectionSettings:
 
 
 class AutarcoModbusClient:
-    """Read-only Modbus TCP client."""
+    """Synchronous, read-only Modbus TCP client."""
 
     def __init__(self, settings: AutarcoConnectionSettings) -> None:
         """Initialize the client."""
         self._settings = settings
-        self._io_lock = asyncio.Lock()
+        self._io_lock = Lock()
 
-    def _new_client(self) -> AsyncModbusTcpClient:
-        """Create a fresh Modbus TCP client."""
-        return AsyncModbusTcpClient(
+    def _new_client(self) -> ModbusTcpClient:
+        """Create a fresh client."""
+        return ModbusTcpClient(
             self._settings.host,
             port=self._settings.port,
             timeout=self._settings.timeout,
             retries=1,
         )
 
-    async def async_validate(self) -> None:
-        """Validate the connection with one small known-readable request."""
-        async with self._io_lock:
+    def validate(self) -> None:
+        """Validate using a small, confirmed-readable request."""
+        with self._io_lock:
             client = self._new_client()
             try:
-                connected = await client.connect()
-                if not connected:
+                if not client.connect():
                     raise AutarcoConnectionError(
                         f"Geen verbinding met "
                         f"{self._settings.host}:{self._settings.port}"
                     )
 
-                result = await client.read_input_registers(
+                result = client.read_input_registers(
                     VALIDATION_REGISTER_START,
                     count=VALIDATION_REGISTER_COUNT,
                     device_id=self._settings.device_id,
@@ -83,27 +82,24 @@ class AutarcoModbusClient:
                     )
             except AutarcoConnectionError:
                 raise
-            except (TimeoutError, asyncio.TimeoutError) as err:
-                raise AutarcoConnectionError("Timeout tijdens validatie") from err
             except (ModbusException, OSError) as err:
                 raise AutarcoConnectionError(str(err)) from err
+            except Exception as err:
+                _LOGGER.exception("Onverwachte fout tijdens Modbus-validatie")
+                raise AutarcoConnectionError(
+                    f"{type(err).__name__}: {err}"
+                ) from err
             finally:
                 client.close()
 
-    async def async_read_all(self) -> dict[int, int]:
-        """Read known registers in small chunks.
-
-        Unsupported chunks are skipped. This is needed because the logger
-        returns Modbus exception code 2 when a request crosses an
-        unsupported address.
-        """
-        async with self._io_lock:
+    def read_all(self) -> dict[int, int]:
+        """Read registers 33000 through 33139 in blocks of ten."""
+        with self._io_lock:
             client = self._new_client()
             registers: dict[int, int] = {}
 
             try:
-                connected = await client.connect()
-                if not connected:
+                if not client.connect():
                     raise AutarcoConnectionError(
                         f"Geen verbinding met "
                         f"{self._settings.host}:{self._settings.port}"
@@ -111,47 +107,54 @@ class AutarcoModbusClient:
 
                 start = REGISTER_START
                 while start <= REGISTER_END:
-                    count = min(
+                    requested_count = min(
                         REGISTER_CHUNK_SIZE,
                         REGISTER_END - start + 1,
                     )
+                    end = start + requested_count - 1
 
                     try:
-                        result = await client.read_input_registers(
+                        result = client.read_input_registers(
                             start,
-                            count=count,
+                            count=requested_count,
                             device_id=self._settings.device_id,
                         )
-                    except (TimeoutError, asyncio.TimeoutError, ModbusException, OSError) as err:
+                    except (ModbusException, OSError) as err:
                         _LOGGER.debug(
                             "Registerblok %s-%s kon niet worden gelezen: %s",
                             start,
-                            start + count - 1,
+                            end,
                             err,
                         )
-                        start += count
+                        start += requested_count
                         continue
 
                     if result.isError():
                         _LOGGER.debug(
                             "Registerblok %s-%s wordt niet ondersteund: %s",
                             start,
-                            start + count - 1,
+                            end,
                             result,
                         )
-                        start += count
+                        start += requested_count
                         continue
 
-                    values = getattr(result, "registers", None)
-                    if values:
-                        registers.update(
-                            {
-                                start + offset: int(value)
-                                for offset, value in enumerate(values)
-                            }
+                    values = getattr(result, "registers", None) or []
+                    if len(values) != requested_count:
+                        _LOGGER.debug(
+                            "Registerblok %s-%s gaf %s van %s waarden terug",
+                            start,
+                            end,
+                            len(values),
+                            requested_count,
                         )
 
-                    start += count
+                    for offset, value in enumerate(values):
+                        if offset >= requested_count:
+                            break
+                        registers[start + offset] = int(value)
+
+                    start += requested_count
 
             except AutarcoConnectionError:
                 raise
@@ -165,7 +168,7 @@ class AutarcoModbusClient:
 
             if not registers:
                 raise AutarcoConnectionError(
-                    "Verbinding gelukt, maar geen ondersteunde registers gelezen"
+                    "Verbinding gelukt, maar geen registers gelezen"
                 )
 
             return registers
