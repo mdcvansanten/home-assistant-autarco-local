@@ -1,0 +1,16 @@
+{
+  "domain": "autarco_local",
+  "name": "Autarco Local",
+  "version": "0.1.0",
+  "documentation": "https://github.com/mdcvansanten/home-assistant-autarco-local",
+  "issue_tracker": "https://github.com/mdcvansanten/home-assistant-autarco-local/issues",
+  "codeowners": [
+    "@mdcvansanten"
+  ],
+  "config_flow": true,
+  "iot_class": "local_polling",
+  "requirements": [
+    "pymodbus==3.13.1"
+  ],
+  "integration_type": "hub"
+}

@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add Autarco Local",
+        "description": "Creates a read-only Modbus TCP connection.",
+        "data": {
+          "name": "Name",
+          "host": "IP address",
+          "port": "Port",
+          "device_id": "Device ID",
+          "scan_interval": "Scan interval",
+          "timeout": "Timeout"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot establish a read-only connection to the inverter.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This IP address and port are already configured."
+    }
+  },
+  "exceptions": {
+    "communication_error": {
+      "message": "Communication with the Autarco failed: {error}"
+    }
+  }
+}

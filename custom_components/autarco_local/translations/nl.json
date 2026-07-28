@@ -1,0 +1,30 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Autarco Local toevoegen",
+        "description": "Maakt uitsluitend een leesverbinding via Modbus TCP.",
+        "data": {
+          "name": "Naam",
+          "host": "IP-adres",
+          "port": "Poort",
+          "device_id": "Device-ID",
+          "scan_interval": "Verversingsinterval",
+          "timeout": "Timeout"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kan geen leesverbinding met de omvormer maken.",
+      "unknown": "Onverwachte fout."
+    },
+    "abort": {
+      "already_configured": "Dit IP-adres en deze poort zijn al geconfigureerd."
+    }
+  },
+  "exceptions": {
+    "communication_error": {
+      "message": "Communicatie met de Autarco is mislukt: {error}"
+    }
+  }
+}
