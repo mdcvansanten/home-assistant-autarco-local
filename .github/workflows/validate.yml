@@ -21,3 +21,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: home-assistant/actions/hassfest@master
+
+  syntax:
+    name: Python and JSON syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Compile Python
+        run: python -m compileall -q custom_components/autarco_local
+      - name: Validate JSON
+        run: |
+          python -m json.tool custom_components/autarco_local/manifest.json >/dev/null
+          python -m json.tool custom_components/autarco_local/strings.json >/dev/null
+          python -m json.tool custom_components/autarco_local/translations/en.json >/dev/null
+          python -m json.tool custom_components/autarco_local/translations/nl.json >/dev/null
+          python -m json.tool hacs.json >/dev/null
