@@ -1,5 +1,7 @@
 # Autarco Local
 
+![Autarco Local](custom_components/autarco_local/brand/logo.png)
+
 Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via Modbus TCP.
 
 > [!WARNING]
@@ -52,3 +54,8 @@ Herstart daarna Home Assistant.
 ## Licentie
 
 MIT
+
+
+## Diagnostiek
+
+Via het apparaatmenu kan diagnostische informatie worden gedownload. Het IP-adres wordt daarbij afgeschermd.
