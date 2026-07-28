@@ -1,30 +1,56 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Add Autarco Local",
-        "description": "Creates a read-only Modbus TCP connection.",
-        "data": {
-          "name": "Name",
-          "host": "IP address",
-          "port": "Port",
-          "device_id": "Device ID",
-          "scan_interval": "Scan interval",
-          "timeout": "Timeout"
-        }
-      }
+    "abort": {
+      "already_configured": "This IP address and port are already configured.",
+      "reconfigure_successful": "Autarco Local was reconfigured successfully."
     },
     "error": {
       "cannot_connect": "Cannot establish a read-only connection to the inverter.",
-      "unknown": "Unexpected error."
+      "unknown": "Unexpected error. Check the Home Assistant log for details."
     },
-    "abort": {
-      "already_configured": "This IP address and port are already configured."
+    "step": {
+      "reconfigure": {
+        "data": {
+          "device_id": "Device ID",
+          "host": "IP address",
+          "name": "Name",
+          "port": "Port",
+          "scan_interval": "Scan interval",
+          "timeout": "Timeout"
+        },
+        "description": "Change the connection and verify it with a read-only Modbus request.",
+        "title": "Reconfigure Autarco Local"
+      },
+      "user": {
+        "data": {
+          "device_id": "Device ID",
+          "host": "IP address",
+          "name": "Name",
+          "port": "Port",
+          "scan_interval": "Scan interval",
+          "timeout": "Timeout"
+        },
+        "description": "Creates only a read-only connection over Modbus TCP.",
+        "title": "Add Autarco Local"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "device_time": {
+        "name": "Inverter clock"
+      },
+      "raw_registers": {
+        "name": "Raw Modbus registers"
+      },
+      "register_count": {
+        "name": "Register count"
+      }
     }
   },
   "exceptions": {
     "communication_error": {
-      "message": "Communication with the Autarco failed: {error}"
+      "message": "Communication with Autarco failed: {error}"
     }
   }
 }

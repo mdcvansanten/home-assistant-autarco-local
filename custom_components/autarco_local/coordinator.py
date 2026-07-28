@@ -23,32 +23,34 @@ from .const import (
     DEFAULT_TIMEOUT,
     DOMAIN,
 )
-from .modbus_client import AutarcoConnectionError, AutarcoModbusClient
+from .modbus_client import (
+    AutarcoConnectionError,
+    AutarcoConnectionSettings,
+    AutarcoModbusClient,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
-    """Coordinate Modbus reads."""
+    """Coordinate read-only Modbus requests."""
 
     config_entry: ConfigEntry
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         self.config_entry = entry
-        self.client = AutarcoModbusClient(
-            host=entry.data[CONF_HOST],
-            port=entry.data.get(CONF_PORT, DEFAULT_PORT),
-            device_id=entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID),
-            timeout=entry.options.get(
-                CONF_TIMEOUT,
-                entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
-            ),
-        )
 
-        scan_interval = entry.options.get(
-            CONF_SCAN_INTERVAL,
-            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+        settings = AutarcoConnectionSettings(
+            host=str(entry.data[CONF_HOST]),
+            port=int(entry.data.get(CONF_PORT, DEFAULT_PORT)),
+            device_id=int(entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID)),
+            timeout=int(entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)),
+        )
+        self.client = AutarcoModbusClient(settings)
+
+        scan_interval = int(
+            entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
         )
 
         super().__init__(
@@ -70,7 +72,3 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
                 translation_key="communication_error",
                 translation_placeholders={"error": str(err)},
             ) from err
-
-    async def async_shutdown(self) -> None:
-        """Shut down coordinator resources."""
-        return

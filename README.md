@@ -2,10 +2,11 @@
 
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
-Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via Modbus TCP.
+Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers
+via Modbus TCP.
 
 > [!WARNING]
-> Dit is een vroege ontwikkelversie. De registerbetekenissen worden nog onderzocht.
+> Dit is een ontwikkelversie. De registerbetekenissen worden nog onderzocht.
 > De integratie bevat geen schrijfcommando's.
 
 ## Getest systeem
@@ -17,17 +18,12 @@ Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via M
 
 ## Installatie via HACS
 
-1. Open **HACS** in Home Assistant.
-2. Kies **Integraties**.
-3. Open rechtsboven het menu met de drie puntjes.
-4. Kies **Aangepaste repositories**.
-5. Voeg toe:
+1. Voeg deze repository in HACS toe als aangepaste **Integratie**:
    `https://github.com/mdcvansanten/home-assistant-autarco-local`
-6. Selecteer categorie **Integratie**.
-7. Installeer **Autarco Local**.
-8. Herstart Home Assistant.
-9. Ga naar **Instellingen → Apparaten & diensten → Integratie toevoegen**.
-10. Zoek naar **Autarco Local**.
+2. Download **Autarco Local**.
+3. Herstart Home Assistant.
+4. Ga naar **Instellingen → Apparaten & diensten → Integratie toevoegen**.
+5. Zoek naar **Autarco Local**.
 
 Gebruik voor het onderzochte systeem:
 
@@ -37,25 +33,30 @@ Gebruik voor het onderzochte systeem:
 - Verversingsinterval: `30` seconden
 - Timeout: `5` seconden
 
+## Versie 0.2.0
+
+Deze versie verbetert vooral de betrouwbaarheid en foutdiagnose:
+
+- veilige, uitsluitend-lezen registeropvragen;
+- duidelijke logging bij onverwachte fouten;
+- automatische reconnect bij iedere poll;
+- controle op volledige Modbus-antwoorden;
+- herconfigureren vanuit Home Assistant;
+- ondersteuning voor meerdere config entries;
+- diagnostiek met afgeschermd IP-adres.
+
 ## Huidige entiteiten
 
-- Verbinding
+- Aantal registers
 - Ruwe Modbus-registers
 - Omvormerklok (voorlopige interpretatie)
 
-## Handmatige installatie
+## Diagnostiek
 
-Kopieer `custom_components/autarco_local` naar:
-
-`/config/custom_components/autarco_local`
-
-Herstart daarna Home Assistant.
+Via **Instellingen → Apparaten & diensten → Autarco Local → drie puntjes →
+Diagnostiek downloaden** kan een diagnostiekbestand worden gemaakt. Het
+IP-adres wordt daarin afgeschermd.
 
 ## Licentie
 
 MIT
-
-
-## Diagnostiek
-
-Via het apparaatmenu kan diagnostische informatie worden gedownload. Het IP-adres wordt daarbij afgeschermd.

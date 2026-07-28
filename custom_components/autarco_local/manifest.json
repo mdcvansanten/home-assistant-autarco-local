@@ -10,7 +10,7 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/mdcvansanten/home-assistant-autarco-local/issues",
   "requirements": [
-    "pymodbus==3.13.1"
+    "pymodbus==3.14.0"
   ],
-  "version": "0.1.1"
+  "version": "0.2.0"
 }

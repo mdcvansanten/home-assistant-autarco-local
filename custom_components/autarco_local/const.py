@@ -1,23 +1,31 @@
 """Constants for Autarco Local."""
 
 from datetime import timedelta
+from typing import Final
 
-DOMAIN = "autarco_local"
-DEFAULT_NAME = "Autarco Local"
-DEFAULT_PORT = 502
-DEFAULT_DEVICE_ID = 1
-DEFAULT_SCAN_INTERVAL = 30
-DEFAULT_TIMEOUT = 5
+DOMAIN: Final = "autarco_local"
 
-CONF_DEVICE_ID = "device_id"
-CONF_SCAN_INTERVAL = "scan_interval"
-CONF_TIMEOUT = "timeout"
+DEFAULT_NAME: Final = "Autarco Local"
+DEFAULT_PORT: Final = 502
+DEFAULT_DEVICE_ID: Final = 1
+DEFAULT_SCAN_INTERVAL: Final = 30
+DEFAULT_TIMEOUT: Final = 5
 
-PLATFORMS = ["sensor"]
+MIN_SCAN_INTERVAL: Final = 10
+MAX_SCAN_INTERVAL: Final = 3600
+MIN_TIMEOUT: Final = 1
+MAX_TIMEOUT: Final = 30
 
-REGISTER_BLOCKS = (
+CONF_DEVICE_ID: Final = "device_id"
+CONF_SCAN_INTERVAL: Final = "scan_interval"
+CONF_TIMEOUT: Final = "timeout"
+
+PLATFORMS: Final = ["sensor"]
+
+# A Modbus request may contain at most 125 registers.
+REGISTER_BLOCKS: Final = (
     (33000, 125),
     (33125, 15),
 )
 
-UPDATE_INTERVAL_MIN = timedelta(seconds=10)
+DEFAULT_UPDATE_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL)

@@ -1,25 +1,51 @@
 {
   "config": {
-    "step": {
-      "user": {
-        "title": "Autarco Local toevoegen",
-        "description": "Maakt uitsluitend een leesverbinding via Modbus TCP.",
-        "data": {
-          "name": "Naam",
-          "host": "IP-adres",
-          "port": "Poort",
-          "device_id": "Device-ID",
-          "scan_interval": "Verversingsinterval",
-          "timeout": "Timeout"
-        }
-      }
+    "abort": {
+      "already_configured": "Dit IP-adres en deze poort zijn al geconfigureerd.",
+      "reconfigure_successful": "Autarco Local is opnieuw geconfigureerd."
     },
     "error": {
       "cannot_connect": "Kan geen leesverbinding met de omvormer maken.",
-      "unknown": "Onverwachte fout."
+      "unknown": "Onverwachte fout. Bekijk het Home Assistant-logboek voor details."
     },
-    "abort": {
-      "already_configured": "Dit IP-adres en deze poort zijn al geconfigureerd."
+    "step": {
+      "reconfigure": {
+        "data": {
+          "device_id": "Device-ID",
+          "host": "IP-adres",
+          "name": "Naam",
+          "port": "Poort",
+          "scan_interval": "Verversingsinterval",
+          "timeout": "Timeout"
+        },
+        "description": "Wijzig de verbinding en controleer deze met een uitsluitend-lezen Modbus-opdracht.",
+        "title": "Autarco Local opnieuw configureren"
+      },
+      "user": {
+        "data": {
+          "device_id": "Device-ID",
+          "host": "IP-adres",
+          "name": "Naam",
+          "port": "Poort",
+          "scan_interval": "Verversingsinterval",
+          "timeout": "Timeout"
+        },
+        "description": "Maakt uitsluitend een leesverbinding via Modbus TCP.",
+        "title": "Autarco Local toevoegen"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "device_time": {
+        "name": "Omvormerklok"
+      },
+      "raw_registers": {
+        "name": "Ruwe Modbus-registers"
+      },
+      "register_count": {
+        "name": "Aantal registers"
+      }
     }
   },
   "exceptions": {

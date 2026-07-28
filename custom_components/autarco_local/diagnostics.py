@@ -17,9 +17,18 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
     coordinator = entry.runtime_data
+
     return {
         "config_entry": async_redact_data(entry.as_dict(), TO_REDACT),
         "last_update_success": coordinator.last_update_success,
+        "last_exception": (
+            str(coordinator.last_exception)
+            if coordinator.last_exception is not None
+            else None
+        ),
         "register_count": len(coordinator.data or {}),
-        "registers": coordinator.data or {},
+        "registers": {
+            str(address): value
+            for address, value in sorted((coordinator.data or {}).items())
+        },
     }
