@@ -55,7 +55,7 @@ async def _validate_input(data: dict[str, Any]) -> None:
         device_id=data[CONF_DEVICE_ID],
         timeout=data[CONF_TIMEOUT],
     )
-    await AutarcoModbusClient(settings).async_read_all()
+    await AutarcoModbusClient(settings).async_validate()
 
 
 def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:

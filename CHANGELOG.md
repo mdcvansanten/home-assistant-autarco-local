@@ -1,15 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- Verwijdert de conflicterende vaste PyModbus-versie uit `manifest.json`.
+- Configuratiecontrole leest slechts 10 eerder bevestigde registers.
+- De volledige scan gebruikt blokken van 10 registers.
+- Niet-ondersteunde registerblokken met Modbus exception code 2 worden overgeslagen.
+- Een groot verzoek van 125 registers wordt niet meer gebruikt.
+
 ## 0.2.0
 
-- Herbouwde en robuustere uitsluitend-lezen Modbus-client.
-- Selectorwaarden worden vóór gebruik naar gehele getallen omgezet.
-- Onverwachte configuratiefouten worden volledig gelogd.
-- Leesverzoeken worden geserialiseerd en krijgen een totale timeout.
-- Onvolledige Modbus-antwoorden worden gedetecteerd.
-- Configuratie kan vanuit Home Assistant opnieuw worden ingesteld.
-- Unieke entiteits-ID's ondersteunen meerdere omvormers.
-- Tijdstempels zijn nu timezone-aware.
-- Diagnostiek bevat de laatste communicatiefout.
-- Manifestvolgorde voldoet aan Hassfest.
-- PyModbus bijgewerkt naar 3.14.0.
+- Eerste herbouwde ontwikkelversie.

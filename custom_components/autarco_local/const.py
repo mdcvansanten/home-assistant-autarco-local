@@ -1,6 +1,5 @@
 """Constants for Autarco Local."""
 
-from datetime import timedelta
 from typing import Final
 
 DOMAIN: Final = "autarco_local"
@@ -22,10 +21,12 @@ CONF_TIMEOUT: Final = "timeout"
 
 PLATFORMS: Final = ["sensor"]
 
-# A Modbus request may contain at most 125 registers.
-REGISTER_BLOCKS: Final = (
-    (33000, 125),
-    (33125, 15),
-)
+# The logger rejects one large 125-register request with exception code 2.
+# Read the range in smaller chunks and skip unsupported holes.
+REGISTER_START: Final = 33000
+REGISTER_END: Final = 33139
+REGISTER_CHUNK_SIZE: Final = 10
 
-DEFAULT_UPDATE_INTERVAL: Final = timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+# Small, previously confirmed readable range used during config validation.
+VALIDATION_REGISTER_START: Final = 33000
+VALIDATION_REGISTER_COUNT: Final = 10
