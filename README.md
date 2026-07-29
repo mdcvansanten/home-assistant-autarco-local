@@ -2,71 +2,14 @@
 
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
-Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers
-via Modbus TCP.
+Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco via Modbus TCP.
 
-> [!WARNING]
-> Dit is een ontwikkelversie. De registerbetekenissen worden nog onderzocht.
-> De integratie bevat geen schrijfcommando's.
+## Versie 0.3.0
 
-## Getest systeem
+Deze versie voegt netwerkgezondheid, retries en eerste benoemde sensoren toe. Een deel van de registermapping is voorlopig en moet met de Autarco-app worden vergeleken.
 
-- Autarco S2.LH10000-MII.1
-- Modbus TCP-poort 502
-- Device-ID 1
-- Inputregisters 33000–33139
+Huidige logger: `192.168.178.171`, poort `502`, device-ID `1`.
 
-## Installatie via HACS
+## Veiligheid
 
-1. Voeg deze repository in HACS toe als aangepaste **Integratie**:
-   `https://github.com/mdcvansanten/home-assistant-autarco-local`
-2. Download **Autarco Local**.
-3. Herstart Home Assistant.
-4. Ga naar **Instellingen → Apparaten & diensten → Integratie toevoegen**.
-5. Zoek naar **Autarco Local**.
-
-Gebruik voor het onderzochte systeem:
-
-- IP-adres: `192.168.178.17`
-- Poort: `502`
-- Device-ID: `1`
-- Verversingsinterval: `30` seconden
-- Timeout: `5` seconden
-
-## Versie 0.2.3
-
-Deze versie verbetert vooral de betrouwbaarheid en foutdiagnose:
-
-- veilige, uitsluitend-lezen registeropvragen;
-- duidelijke logging bij onverwachte fouten;
-- automatische reconnect bij iedere poll;
-- controle op volledige Modbus-antwoorden;
-- herconfigureren vanuit Home Assistant;
-- ondersteuning voor meerdere config entries;
-- diagnostiek met afgeschermd IP-adres.
-
-## Huidige entiteiten
-
-- Aantal registers
-- Ruwe Modbus-registers
-- Omvormerklok (voorlopige interpretatie)
-
-## Diagnostiek
-
-Via **Instellingen → Apparaten & diensten → Autarco Local → drie puntjes →
-Diagnostiek downloaden** kan een diagnostiekbestand worden gemaakt. Het
-IP-adres wordt daarin afgeschermd.
-
-## Licentie
-
-MIT
-
-
-### Registerlezing
-
-De logger wordt in blokken van 10 registers gelezen. Niet-ondersteunde adresblokken worden veilig overgeslagen.
-
-
-### Bevestigde registertest
-
-Op het testsysteem zijn 131 registerwaarden gelezen uit 33000–33139.
+Deze versie bevat geen schrijfcommando's.

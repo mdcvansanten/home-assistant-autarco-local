@@ -13,16 +13,20 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_DEVICE_ID,
+    CONF_RETRIES,
     CONF_SCAN_INTERVAL,
     CONF_TIMEOUT,
     DEFAULT_DEVICE_ID,
     DEFAULT_NAME,
     DEFAULT_PORT,
+    DEFAULT_RETRIES,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    MAX_RETRIES,
     MAX_SCAN_INTERVAL,
     MAX_TIMEOUT,
+    MIN_RETRIES,
     MIN_SCAN_INTERVAL,
     MIN_TIMEOUT,
 )
@@ -44,6 +48,7 @@ def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
         CONF_DEVICE_ID: int(user_input[CONF_DEVICE_ID]),
         CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
         CONF_TIMEOUT: int(user_input[CONF_TIMEOUT]),
+        CONF_RETRIES: int(user_input.get(CONF_RETRIES, DEFAULT_RETRIES)),
     }
 
 
@@ -54,6 +59,7 @@ async def _validate_input(hass, data: dict[str, Any]) -> None:
         port=data[CONF_PORT],
         device_id=data[CONF_DEVICE_ID],
         timeout=data[CONF_TIMEOUT],
+        retries=data[CONF_RETRIES],
     )
     await hass.async_add_executor_job(AutarcoModbusClient(settings).validate)
 
@@ -117,6 +123,16 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     max=MAX_TIMEOUT,
                     mode=selector.NumberSelectorMode.BOX,
                     unit_of_measurement="s",
+                )
+            ),
+            vol.Required(
+                CONF_RETRIES,
+                default=defaults.get(CONF_RETRIES, DEFAULT_RETRIES),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_RETRIES,
+                    max=MAX_RETRIES,
+                    mode=selector.NumberSelectorMode.BOX,
                 )
             ),
         }

@@ -16,7 +16,8 @@
           "name": "Naam",
           "port": "Poort",
           "scan_interval": "Verversingsinterval",
-          "timeout": "Timeout"
+          "timeout": "Timeout",
+          "retries": "Aantal nieuwe pogingen"
         },
         "description": "Wijzig de verbinding en controleer deze met een uitsluitend-lezen Modbus-opdracht.",
         "title": "Autarco Local opnieuw configureren"
@@ -28,7 +29,8 @@
           "name": "Naam",
           "port": "Poort",
           "scan_interval": "Verversingsinterval",
-          "timeout": "Timeout"
+          "timeout": "Timeout",
+          "retries": "Aantal nieuwe pogingen"
         },
         "description": "Maakt uitsluitend een leesverbinding via Modbus TCP.",
         "title": "Autarco Local toevoegen"
@@ -36,15 +38,77 @@
     }
   },
   "entity": {
+    "binary_sensor": {
+      "connection": {
+        "name": "Modbus-verbinding"
+      }
+    },
     "sensor": {
+      "active_power": {
+        "name": "Actief omvormervermogen"
+      },
+      "battery_current": {
+        "name": "Batterijstroom"
+      },
+      "battery_power": {
+        "name": "Batterijvermogen"
+      },
+      "battery_soc": {
+        "name": "Batterij-SOC"
+      },
+      "battery_voltage": {
+        "name": "Batterijspanning"
+      },
       "device_time": {
         "name": "Omvormerklok"
       },
-      "raw_registers": {
-        "name": "Ruwe Modbus-registers"
+      "failed_polls": {
+        "name": "Mislukte metingen"
+      },
+      "grid_frequency": {
+        "name": "Netfrequentie"
+      },
+      "grid_power": {
+        "name": "Netvermogen"
+      },
+      "house_load_power": {
+        "name": "Huisverbruik"
+      },
+      "phase_voltage_l1": {
+        "name": "Fasespanning L1"
+      },
+      "phase_voltage_l2": {
+        "name": "Fasespanning L2"
+      },
+      "phase_voltage_l3": {
+        "name": "Fasespanning L3"
+      },
+      "pv_current_1": {
+        "name": "PV1-stroom"
+      },
+      "pv_current_2": {
+        "name": "PV2-stroom"
+      },
+      "pv_power": {
+        "name": "PV-vermogen"
+      },
+      "pv_voltage_1": {
+        "name": "PV1-spanning"
+      },
+      "pv_voltage_2": {
+        "name": "PV2-spanning"
       },
       "register_count": {
         "name": "Aantal registers"
+      },
+      "response_time": {
+        "name": "Modbus-responstijd"
+      },
+      "success_rate": {
+        "name": "Netwerk succespercentage"
+      },
+      "temperature": {
+        "name": "Omvormertemperatuur"
       }
     }
   },

@@ -1,174 +1,65 @@
-"""Sensor platform for Autarco Local."""
-
+"""Sensors for Autarco Local."""
 from __future__ import annotations
-
+from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
-
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorEntityDescription,
-    SensorStateClass,
-)
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from typing import Callable
+from homeassistant.components.sensor import SensorDeviceClass,SensorEntity,SensorEntityDescription,SensorStateClass
+from homeassistant.const import EntityCategory,UnitOfElectricCurrent,UnitOfElectricPotential,UnitOfFrequency,UnitOfPower,UnitOfTemperature,PERCENTAGE
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.util import dt as dt_util
-
 from .const import DOMAIN
-from .coordinator import AutarcoLocalCoordinator
 
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddConfigEntryEntitiesCallback,
-) -> None:
-    """Set up Autarco Local sensors."""
-    coordinator: AutarcoLocalCoordinator = entry.runtime_data
-    async_add_entities(
-        [
-            AutarcoRegisterCountSensor(coordinator, entry),
-            AutarcoRawRegistersSensor(coordinator, entry),
-            AutarcoDeviceTimeSensor(coordinator, entry),
-        ]
-    )
-
-
-class AutarcoBaseSensor(
-    CoordinatorEntity[AutarcoLocalCoordinator],
-    SensorEntity,
-):
-    """Base class for Autarco sensors."""
-
-    _attr_has_entity_name = True
-
-    def __init__(
-        self,
-        coordinator: AutarcoLocalCoordinator,
-        entry: ConfigEntry,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialize an Autarco sensor."""
-        super().__init__(coordinator)
-        self.entity_description = description
-        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
-            manufacturer="Autarco",
-            model="S2.LH-MII (Modbus TCP)",
-            configuration_url=(
-                f"http://{entry.data['host']}"
-                if entry.data.get("host")
-                else None
-            ),
-        )
-
-
-class AutarcoRegisterCountSensor(AutarcoBaseSensor):
-    """Number of registers received in the latest poll."""
-
-    def __init__(
-        self,
-        coordinator: AutarcoLocalCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="register_count",
-                translation_key="register_count",
-                icon="mdi:counter",
-                entity_category=EntityCategory.DIAGNOSTIC,
-                state_class=SensorStateClass.MEASUREMENT,
-            ),
-        )
-
+def u16(d,a): return d.get(a)
+def s16(d,a):
+    v=d.get(a); return None if v is None else (v-65536 if v>=32768 else v)
+def u32(d,h,l): return None if h not in d or l not in d else (d[h]<<16)|d[l]
+def s32(d,h,l):
+    v=u32(d,h,l); return None if v is None else (v-4294967296 if v>=2147483648 else v)
+@dataclass(frozen=True,kw_only=True)
+class Desc(SensorEntityDescription): value_fn:Callable
+S=(
+Desc(key='pv_voltage_1',translation_key='pv_voltage_1',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33049)/10 if u16(d,33049) is not None else None),
+Desc(key='pv_current_1',translation_key='pv_current_1',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33050)/10 if u16(d,33050) is not None else None),
+Desc(key='pv_voltage_2',translation_key='pv_voltage_2',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33051)/10 if u16(d,33051) is not None else None),
+Desc(key='pv_current_2',translation_key='pv_current_2',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33052)/10 if u16(d,33052) is not None else None),
+Desc(key='pv_power',translation_key='pv_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u32(d,33057,33058)),
+Desc(key='phase_voltage_l1',translation_key='phase_voltage_l1',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33073)/10 if u16(d,33073) is not None else None),
+Desc(key='phase_voltage_l2',translation_key='phase_voltage_l2',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33074)/10 if u16(d,33074) is not None else None),
+Desc(key='phase_voltage_l3',translation_key='phase_voltage_l3',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33075)/10 if u16(d,33075) is not None else None),
+Desc(key='active_power',translation_key='active_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33079,33080)),
+Desc(key='temperature',translation_key='temperature',device_class=SensorDeviceClass.TEMPERATURE,native_unit_of_measurement=UnitOfTemperature.CELSIUS,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s16(d,33093)/10 if s16(d,33093) is not None else None),
+Desc(key='grid_frequency',translation_key='grid_frequency',device_class=SensorDeviceClass.FREQUENCY,native_unit_of_measurement=UnitOfFrequency.HERTZ,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33094)/100 if u16(d,33094) is not None else None),
+Desc(key='battery_voltage',translation_key='battery_voltage',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33133)/10 if u16(d,33133) is not None else None),
+Desc(key='battery_current',translation_key='battery_current',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u16(d,33134)/10 if u16(d,33134) is not None else None),
+Desc(key='battery_soc',translation_key='battery_soc',device_class=SensorDeviceClass.BATTERY,native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33139)),
+Desc(key='house_load_power',translation_key='house_load_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33147)),
+Desc(key='battery_power',translation_key='battery_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u32(d,33149,33150) if u32(d,33149,33150) is not None else None),
+Desc(key='grid_power',translation_key='grid_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33151,33152)),
+)
+async def async_setup_entry(hass,entry,async_add_entities):
+    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),CountSensor(co,entry),ClockSensor(co,entry)])
+class Base(CoordinatorEntity,SensorEntity):
+    _attr_has_entity_name=True
+    def __init__(self,co,entry,desc):
+        super().__init__(co); self.entity_description=desc; self._attr_unique_id=f"{entry.entry_id}_{desc.key}"; self._attr_device_info=DeviceInfo(identifiers={(DOMAIN,entry.entry_id)},name=entry.title,manufacturer='Autarco',model='S2.LH-MII (Modbus TCP)')
+class RegisterSensor(Base):
     @property
-    def native_value(self) -> int:
-        """Return the register count."""
-        return len(self.coordinator.data or {})
-
-
-class AutarcoRawRegistersSensor(AutarcoBaseSensor):
-    """Raw Modbus register diagnostic sensor."""
-
-    def __init__(
-        self,
-        coordinator: AutarcoLocalCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="raw_registers",
-                translation_key="raw_registers",
-                icon="mdi:code-json",
-                entity_category=EntityCategory.DIAGNOSTIC,
-            ),
-        )
-
+    def native_value(self): return self.entity_description.value_fn(self.coordinator.data or {})
+class MetricSensor(Base):
+    def __init__(self,co,entry,key):
+        m={'response_time':SensorEntityDescription(key='response_time',translation_key='response_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'success_rate':SensorEntityDescription(key='success_rate',translation_key='success_rate',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'failed_polls':SensorEntityDescription(key='failed_polls',translation_key='failed_polls',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC)}; super().__init__(co,entry,m[key])
     @property
-    def native_value(self) -> str:
-        """Return a compact state."""
-        return "beschikbaar"
-
+    def native_value(self):
+        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls']}[self.entity_description.key]
+class CountSensor(Base):
+    def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='register_count',translation_key='register_count',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC))
     @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return all registers as diagnostic attributes."""
-        return {
-            f"register_{address}": value
-            for address, value in sorted((self.coordinator.data or {}).items())
-        }
-
-
-class AutarcoDeviceTimeSensor(AutarcoBaseSensor):
-    """Best-effort inverter clock based on observed registers."""
-
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
-
-    def __init__(
-        self,
-        coordinator: AutarcoLocalCoordinator,
-        entry: ConfigEntry,
-    ) -> None:
-        """Initialize the sensor."""
-        super().__init__(
-            coordinator,
-            entry,
-            SensorEntityDescription(
-                key="device_time",
-                translation_key="device_time",
-                icon="mdi:clock-outline",
-                entity_category=EntityCategory.DIAGNOSTIC,
-                device_class=SensorDeviceClass.TIMESTAMP,
-            ),
-        )
-
+    def native_value(self): return len(self.coordinator.data or {})
+class ClockSensor(Base):
+    def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='device_time',translation_key='device_time',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC))
     @property
-    def native_value(self) -> datetime | None:
-        """Return the interpreted inverter date and time."""
-        data = self.coordinator.data or {}
-        try:
-            value = datetime(
-                2000 + int(data[33022]),
-                int(data[33023]),
-                int(data[33024]),
-                int(data[33025]),
-                int(data[33026]),
-                int(data[33027]),
-                tzinfo=dt_util.DEFAULT_TIME_ZONE,
-            )
-        except (KeyError, TypeError, ValueError):
-            return None
-        return value
+    def native_value(self):
+        d=self.coordinator.data or {}
+        try: return datetime(2000+d[33022],d[33023],d[33024],d[33025],d[33026],d[33027],tzinfo=dt_util.DEFAULT_TIME_ZONE)
+        except (KeyError,ValueError,TypeError): return None
