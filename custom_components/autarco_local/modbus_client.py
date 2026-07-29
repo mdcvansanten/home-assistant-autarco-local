@@ -40,7 +40,16 @@ class AutarcoModbusClient:
                     return AutarcoReadResult(regs,round((time.monotonic()-started)*1000,1),attempt,tuple(unsupported))
                 except AutarcoConnectionError as err:
                     last=err
-                    if attempt<=self._settings.retries: time.sleep(min(.5*attempt,2))
+                    if attempt <= self._settings.retries:
+                        delay = min(0.5 * attempt, 2.0)
+                        _LOGGER.debug(
+                            "Modbus-poging %s van %s mislukt (%s); opnieuw in %.1f s",
+                            attempt,
+                            self._settings.retries + 1,
+                            err,
+                            delay,
+                        )
+                        time.sleep(delay)
             raise AutarcoConnectionError(str(last) if last else 'Onbekende communicatiefout')
     def _read_once(self)->tuple[dict[int,int],list[str]]:
         client=self._client(); regs={}; unsupported=[]
@@ -51,7 +60,14 @@ class AutarcoModbusClient:
                 count=min(REGISTER_CHUNK_SIZE,REGISTER_END-start+1); end=start+count-1
                 try: result=client.read_input_registers(start,count=count,device_id=self._settings.device_id)
                 except (ModbusException,OSError) as err: raise AutarcoConnectionError(f"Leesfout {start}-{end}: {err}") from err
-                if result.isError(): unsupported.append(f"{start}-{end}")
+                if result.isError():
+                    unsupported.append(f"{start}-{end}")
+                    _LOGGER.debug(
+                        "Registerblok %s-%s niet ondersteund: %s",
+                        start,
+                        end,
+                        result,
+                    )
                 else:
                     for offset,value in enumerate((getattr(result,'registers',None) or [])[:count]): regs[start+offset]=int(value)
                 start+=count

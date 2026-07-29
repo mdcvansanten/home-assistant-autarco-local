@@ -109,6 +109,12 @@
       },
       "temperature": {
         "name": "Omvormertemperatuur"
+      },
+      "last_success": {
+        "name": "Laatste succesvolle meting"
+      },
+      "total_retries": {
+        "name": "Totaal aantal retries"
       }
     }
   },

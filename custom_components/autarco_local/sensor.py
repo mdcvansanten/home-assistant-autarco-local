@@ -31,14 +31,14 @@ Desc(key='active_power',translation_key='active_power',device_class=SensorDevice
 Desc(key='temperature',translation_key='temperature',device_class=SensorDeviceClass.TEMPERATURE,native_unit_of_measurement=UnitOfTemperature.CELSIUS,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s16(d,33093)/10 if s16(d,33093) is not None else None),
 Desc(key='grid_frequency',translation_key='grid_frequency',device_class=SensorDeviceClass.FREQUENCY,native_unit_of_measurement=UnitOfFrequency.HERTZ,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33094)/100 if u16(d,33094) is not None else None),
 Desc(key='battery_voltage',translation_key='battery_voltage',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33133)/10 if u16(d,33133) is not None else None),
-Desc(key='battery_current',translation_key='battery_current',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u16(d,33134)/10 if u16(d,33134) is not None else None),
+Desc(key='battery_current',translation_key='battery_current',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(1 if u16(d,33135)==1 else -1)*u16(d,33134)/10 if u16(d,33134) is not None else None),
 Desc(key='battery_soc',translation_key='battery_soc',device_class=SensorDeviceClass.BATTERY,native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33139)),
 Desc(key='house_load_power',translation_key='house_load_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33147)),
-Desc(key='battery_power',translation_key='battery_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u32(d,33149,33150) if u32(d,33149,33150) is not None else None),
+Desc(key='battery_power',translation_key='battery_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(1 if u16(d,33135)==1 else -1)*u32(d,33149,33150) if u32(d,33149,33150) is not None else None),
 Desc(key='grid_power',translation_key='grid_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33151,33152)),
 )
 async def async_setup_entry(hass,entry,async_add_entities):
-    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),CountSensor(co,entry),ClockSensor(co,entry)])
+    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),MetricSensor(co,entry,'total_retries'),MetricSensor(co,entry,'last_success'),CountSensor(co,entry),ClockSensor(co,entry)])
 class Base(CoordinatorEntity,SensorEntity):
     _attr_has_entity_name=True
     def __init__(self,co,entry,desc):
@@ -48,10 +48,12 @@ class RegisterSensor(Base):
     def native_value(self): return self.entity_description.value_fn(self.coordinator.data or {})
 class MetricSensor(Base):
     def __init__(self,co,entry,key):
-        m={'response_time':SensorEntityDescription(key='response_time',translation_key='response_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'success_rate':SensorEntityDescription(key='success_rate',translation_key='success_rate',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'failed_polls':SensorEntityDescription(key='failed_polls',translation_key='failed_polls',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC)}; super().__init__(co,entry,m[key])
+        m={'response_time':SensorEntityDescription(key='response_time',translation_key='response_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'success_rate':SensorEntityDescription(key='success_rate',translation_key='success_rate',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'failed_polls':SensorEntityDescription(key='failed_polls',translation_key='failed_polls',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
+'total_retries':SensorEntityDescription(key='total_retries',translation_key='total_retries',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
+'last_success':SensorEntityDescription(key='last_success',translation_key='last_success',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC)}; super().__init__(co,entry,m[key])
     @property
     def native_value(self):
-        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls']}[self.entity_description.key]
+        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls'],'total_retries':h['total_retries'],'last_success':h['last_success_at']}[self.entity_description.key]
 class CountSensor(Base):
     def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='register_count',translation_key='register_count',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC))
     @property

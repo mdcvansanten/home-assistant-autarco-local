@@ -109,6 +109,12 @@
       },
       "temperature": {
         "name": "Inverter temperature"
+      },
+      "last_success": {
+        "name": "Last successful poll"
+      },
+      "total_retries": {
+        "name": "Total retries"
       }
     }
   },

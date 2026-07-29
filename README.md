@@ -2,14 +2,45 @@
 
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
-Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco via Modbus TCP.
+Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers
+via Modbus TCP.
 
-## Versie 0.3.0
+> [!WARNING]
+> Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten
+> uitgevoerd.
 
-Deze versie voegt netwerkgezondheid, retries en eerste benoemde sensoren toe. Een deel van de registermapping is voorlopig en moet met de Autarco-app worden vergeleken.
+## Versie 0.3.1 — Stabiliteit
 
-Huidige logger: `192.168.178.171`, poort `502`, device-ID `1`.
+- Correcte batterijpolariteit:
+  - positief = laden;
+  - negatief = ontladen.
+- Configureerbare retries.
+- Nieuwe TCP-sessie per poll.
+- Logging bij eerste uitval en herstel.
+- Diagnostiek voor responstijd, succespercentage, fouten, retries en laatste
+  succesvolle meting.
 
-## Veiligheid
+## Installatie via HACS
 
-Deze versie bevat geen schrijfcommando's.
+1. Upload de inhoud van dit pakket naar de repository.
+2. Maak release `v0.3.1`.
+3. Werk Autarco Local bij in HACS.
+4. Herstart Home Assistant.
+5. Open **Instellingen → Apparaten & diensten → Autarco Local**.
+
+Aanbevolen instellingen voor het testsysteem:
+
+- IP-adres: `192.168.178.171`
+- Poort: `502`
+- Device-ID: `1`
+- Verversingsinterval: `30` seconden
+- Timeout: `5` seconden
+- Nieuwe pogingen: `2`
+
+## Roadmap
+
+Zie [`docs/roadmap.md`](docs/roadmap.md).
+
+## Licentie
+
+MIT
