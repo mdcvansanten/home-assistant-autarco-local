@@ -102,7 +102,7 @@
         "name": "Register count"
       },
       "response_time": {
-        "name": "Modbus response time"
+        "name": "Complete poll duration"
       },
       "success_rate": {
         "name": "Network success rate"
@@ -121,6 +121,21 @@
       },
       "consecutive_failures": {
         "name": "Consecutive failures"
+      },
+      "read_time": {
+        "name": "Modbus read duration"
+      },
+      "connect_time": {
+        "name": "TCP connect duration"
+      },
+      "average_poll_time": {
+        "name": "Average poll duration"
+      },
+      "min_poll_time": {
+        "name": "Minimum poll duration"
+      },
+      "max_poll_time": {
+        "name": "Maximum poll duration"
       }
     }
   },

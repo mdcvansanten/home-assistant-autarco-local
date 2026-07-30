@@ -102,7 +102,7 @@
         "name": "Aantal registers"
       },
       "response_time": {
-        "name": "Modbus-responstijd"
+        "name": "Volledige pollduur"
       },
       "success_rate": {
         "name": "Netwerk succespercentage"
@@ -121,6 +121,21 @@
       },
       "consecutive_failures": {
         "name": "Opeenvolgende fouten"
+      },
+      "read_time": {
+        "name": "Modbus-leestijd"
+      },
+      "connect_time": {
+        "name": "TCP-verbindingsduur"
+      },
+      "average_poll_time": {
+        "name": "Gemiddelde pollduur"
+      },
+      "min_poll_time": {
+        "name": "Minimale pollduur"
+      },
+      "max_poll_time": {
+        "name": "Maximale pollduur"
       }
     }
   },

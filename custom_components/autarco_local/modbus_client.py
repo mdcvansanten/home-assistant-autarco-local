@@ -40,10 +40,13 @@ class AutarcoReadResult:
     """Result of one complete register poll."""
 
     registers: dict[int, int]
-    response_ms: float
+    poll_duration_ms: float
+    read_duration_ms: float
+    connect_duration_ms: float
     attempts: int
     unsupported_blocks: tuple[str, ...]
     reconnects: int
+    reconnect_reason: str | None
 
 
 class AutarcoModbusClient:
@@ -53,6 +56,7 @@ class AutarcoModbusClient:
         self._settings = settings
         self._lock = Lock()
         self._client: ModbusTcpClient | None = None
+        self._ever_connected = False
 
     def _new_client(self) -> ModbusTcpClient:
         return ModbusTcpClient(
@@ -68,7 +72,7 @@ class AutarcoModbusClient:
         if client is not None:
             try:
                 client.close()
-            except Exception:  # Defensive cleanup; never hide original error.
+            except Exception:
                 _LOGGER.debug("Fout bij sluiten Modbus-client", exc_info=True)
 
     def close(self) -> None:
@@ -76,19 +80,30 @@ class AutarcoModbusClient:
         with self._lock:
             self._disconnect_locked()
 
-    def _ensure_connected_locked(self) -> bool:
-        """Ensure a usable TCP connection and report whether a reconnect occurred."""
+    def _ensure_connected_locked(self, reason: str | None = None) -> tuple[float, bool, str | None]:
+        """Ensure a usable TCP connection.
+
+        Returns connect duration, whether this was a reconnect (not the first
+        connection), and the reconnect reason.
+        """
         if self._client is not None and self._client.connected:
-            return False
+            return 0.0, False, None
 
         self._disconnect_locked()
         self._client = self._new_client()
+        started = time.monotonic()
         if not self._client.connect():
+            duration = (time.monotonic() - started) * 1000
             self._disconnect_locked()
             raise AutarcoConnectionError(
-                f"Geen verbinding met {self._settings.host}:{self._settings.port}"
+                f"Geen verbinding met {self._settings.host}:{self._settings.port} "
+                f"na {duration:.1f} ms"
             )
-        return True
+
+        duration = (time.monotonic() - started) * 1000
+        is_reconnect = self._ever_connected
+        self._ever_connected = True
+        return duration, is_reconnect, reason if is_reconnect else None
 
     def validate(self) -> None:
         """Validate settings with one read-only request."""
@@ -118,26 +133,41 @@ class AutarcoModbusClient:
     def read_all(self) -> AutarcoReadResult:
         """Read all known registers, retrying through clean TCP reconnects."""
         with self._lock:
-            started = time.monotonic()
+            poll_started = time.monotonic()
             last_error: AutarcoConnectionError | None = None
             reconnects = 0
+            total_connect_ms = 0.0
+            reconnect_reason: str | None = None
+            next_connect_reason: str | None = "socket was niet verbonden vóór de poll"
 
             for attempt in range(1, self._settings.retries + 2):
                 try:
-                    reconnected = self._ensure_connected_locked()
-                    reconnects += int(reconnected)
+                    connect_ms, is_reconnect, reason = self._ensure_connected_locked(
+                        next_connect_reason
+                    )
+                    total_connect_ms += connect_ms
+                    if is_reconnect:
+                        reconnects += 1
+                        reconnect_reason = reason
+
+                    read_started = time.monotonic()
                     registers, unsupported = self._read_once_locked()
+                    read_ms = (time.monotonic() - read_started) * 1000
+                    poll_ms = (time.monotonic() - poll_started) * 1000
                     return AutarcoReadResult(
                         registers=registers,
-                        response_ms=round((time.monotonic() - started) * 1000, 1),
+                        poll_duration_ms=round(poll_ms, 1),
+                        read_duration_ms=round(read_ms, 1),
+                        connect_duration_ms=round(total_connect_ms, 1),
                         attempts=attempt,
                         unsupported_blocks=tuple(unsupported),
                         reconnects=reconnects,
+                        reconnect_reason=reconnect_reason,
                     )
                 except AutarcoConnectionError as err:
                     last_error = err
-                    # A failed request can leave the socket half-open. Always rebuild it.
                     self._disconnect_locked()
+                    next_connect_reason = f"herstel na {type(err).__name__}: {err}"
                     if attempt <= self._settings.retries:
                         delay = min(0.75 * (2 ** (attempt - 1)), 3.0)
                         _LOGGER.debug(

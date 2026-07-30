@@ -102,7 +102,7 @@
         "name": "Register count"
       },
       "response_time": {
-        "name": "Modbus response time"
+        "name": "Volledige pollduur"
       },
       "success_rate": {
         "name": "Network success rate"
@@ -115,6 +115,21 @@
       },
       "total_retries": {
         "name": "Total retries"
+      },
+      "read_time": {
+        "name": "Modbus-leestijd"
+      },
+      "connect_time": {
+        "name": "TCP-verbindingsduur"
+      },
+      "average_poll_time": {
+        "name": "Gemiddelde pollduur"
+      },
+      "min_poll_time": {
+        "name": "Minimale pollduur"
+      },
+      "max_poll_time": {
+        "name": "Maximale pollduur"
       }
     }
   },

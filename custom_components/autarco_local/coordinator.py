@@ -50,11 +50,17 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.suppressed_failures = 0
 
         self.last_response_ms: float | None = None
+        self.last_read_ms: float | None = None
+        self.last_connect_ms: float | None = None
+        self.poll_duration_min_ms: float | None = None
+        self.poll_duration_max_ms: float | None = None
+        self.poll_duration_total_ms = 0.0
         self.last_attempts = 0
         self.last_success_at = None
         self.last_failure_at = None
         self.last_poll_at = None
         self.last_error: str | None = None
+        self.last_reconnect_reason: str | None = None
         self.connected_since = None
         self.last_unsupported_blocks: tuple[str, ...] = ()
 
@@ -118,7 +124,22 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.successful_polls += 1
         self.total_retries += max(result.attempts - 1, 0)
         self.reconnect_count += result.reconnects
-        self.last_response_ms = result.response_ms
+        if result.reconnect_reason:
+            self.last_reconnect_reason = result.reconnect_reason
+        self.last_response_ms = result.poll_duration_ms
+        self.last_read_ms = result.read_duration_ms
+        self.last_connect_ms = result.connect_duration_ms
+        self.poll_duration_total_ms += result.poll_duration_ms
+        self.poll_duration_min_ms = (
+            result.poll_duration_ms
+            if self.poll_duration_min_ms is None
+            else min(self.poll_duration_min_ms, result.poll_duration_ms)
+        )
+        self.poll_duration_max_ms = (
+            result.poll_duration_ms
+            if self.poll_duration_max_ms is None
+            else max(self.poll_duration_max_ms, result.poll_duration_ms)
+        )
         self.last_attempts = result.attempts
         self.last_success_at = dt_util.utcnow()
         self.last_error = None
@@ -146,6 +167,11 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
     def network_health(self) -> dict[str, Any]:
         total = self.successful_polls + self.failed_polls
         success_rate = round(self.successful_polls / total * 100, 1) if total else None
+        average_poll_ms = (
+            round(self.poll_duration_total_ms / self.successful_polls, 1)
+            if self.successful_polls
+            else None
+        )
         return {
             "successful_polls": self.successful_polls,
             "failed_polls": self.failed_polls,
@@ -154,6 +180,11 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "suppressed_failures": self.suppressed_failures,
             "success_rate": success_rate,
             "last_response_ms": self.last_response_ms,
+            "last_read_ms": self.last_read_ms,
+            "last_connect_ms": self.last_connect_ms,
+            "average_poll_ms": average_poll_ms,
+            "min_poll_ms": self.poll_duration_min_ms,
+            "max_poll_ms": self.poll_duration_max_ms,
             "last_attempts": self.last_attempts,
             "total_retries": self.total_retries,
             "reconnect_count": self.reconnect_count,
@@ -162,6 +193,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "last_failure_at": self.last_failure_at,
             "connected_since": self.connected_since,
             "last_error": self.last_error,
+            "last_reconnect_reason": self.last_reconnect_reason,
             "connection_available": self.connection_available,
             "unsupported_blocks": self.last_unsupported_blocks,
         }
