@@ -9,10 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import (
-    DataUpdateCoordinator,
-    UpdateFailed,
-)
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .const import (
@@ -26,6 +23,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
     DOMAIN,
+    FAILURE_THRESHOLD,
 )
 from .modbus_client import (
     AutarcoConnectionError,
@@ -42,13 +40,14 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
     config_entry: ConfigEntry
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        """Initialize the coordinator."""
         self.config_entry = entry
 
         self.successful_polls = 0
         self.failed_polls = 0
         self.consecutive_failures = 0
         self.total_retries = 0
+        self.reconnect_count = 0
+        self.suppressed_failures = 0
 
         self.last_response_ms: float | None = None
         self.last_attempts = 0
@@ -74,15 +73,14 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             config_entry=entry,
             name=DOMAIN,
             update_interval=timedelta(
-                seconds=int(
-                    entry.data.get(
-                        CONF_SCAN_INTERVAL,
-                        DEFAULT_SCAN_INTERVAL,
-                    )
-                )
+                seconds=int(entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
             ),
             always_update=True,
         )
+
+    async def async_shutdown(self) -> None:
+        """Close the persistent socket during unload/reload."""
+        await self.hass.async_add_executor_job(self.client.close)
 
     async def _async_update_data(self) -> dict[int, int]:
         """Fetch one complete register snapshot."""
@@ -90,9 +88,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         was_failing = self.consecutive_failures > 0
 
         try:
-            result = await self.hass.async_add_executor_job(
-                self.client.read_all
-            )
+            result = await self.hass.async_add_executor_job(self.client.read_all)
         except AutarcoConnectionError as err:
             self.failed_polls += 1
             self.consecutive_failures += 1
@@ -100,16 +96,18 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.last_error = str(err)
 
             if self.consecutive_failures == 1:
-                _LOGGER.warning(
-                    "Autarco Modbus-verbinding onderbroken: %s",
-                    err,
-                )
+                _LOGGER.warning("Autarco Modbus-poll mislukt: %s", err)
             else:
                 _LOGGER.debug(
-                    "Autarco Modbus nog niet hersteld, storing %s: %s",
+                    "Autarco Modbus-poll %s achtereen mislukt: %s",
                     self.consecutive_failures,
                     err,
                 )
+
+            # Keep the previous snapshot available during a brief interruption.
+            if self.data and self.consecutive_failures < FAILURE_THRESHOLD:
+                self.suppressed_failures += 1
+                return self.data
 
             raise UpdateFailed(
                 translation_domain=DOMAIN,
@@ -119,6 +117,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
 
         self.successful_polls += 1
         self.total_retries += max(result.attempts - 1, 0)
+        self.reconnect_count += result.reconnects
         self.last_response_ms = result.response_ms
         self.last_attempts = result.attempts
         self.last_success_at = dt_util.utcnow()
@@ -130,7 +129,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
 
         if was_failing:
             _LOGGER.info(
-                "Autarco Modbus-verbinding hersteld na %s mislukte meting(en)",
+                "Autarco Modbus-verbinding hersteld na %s mislukte poll(s)",
                 self.consecutive_failures,
             )
             self.connected_since = self.last_success_at
@@ -139,27 +138,30 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         return result.registers
 
     @property
-    def network_health(self) -> dict[str, Any]:
-        """Return connection-health information."""
-        total = self.successful_polls + self.failed_polls
-        success_rate = (
-            round(self.successful_polls / total * 100, 1)
-            if total
-            else None
-        )
+    def connection_available(self) -> bool:
+        """Return true while connection is healthy or only briefly degraded."""
+        return self.consecutive_failures < FAILURE_THRESHOLD and self.data is not None
 
+    @property
+    def network_health(self) -> dict[str, Any]:
+        total = self.successful_polls + self.failed_polls
+        success_rate = round(self.successful_polls / total * 100, 1) if total else None
         return {
             "successful_polls": self.successful_polls,
             "failed_polls": self.failed_polls,
             "consecutive_failures": self.consecutive_failures,
+            "failure_threshold": FAILURE_THRESHOLD,
+            "suppressed_failures": self.suppressed_failures,
             "success_rate": success_rate,
             "last_response_ms": self.last_response_ms,
             "last_attempts": self.last_attempts,
             "total_retries": self.total_retries,
+            "reconnect_count": self.reconnect_count,
             "last_poll_at": self.last_poll_at,
             "last_success_at": self.last_success_at,
             "last_failure_at": self.last_failure_at,
             "connected_since": self.connected_since,
             "last_error": self.last_error,
+            "connection_available": self.connection_available,
             "unsupported_blocks": self.last_unsupported_blocks,
         }

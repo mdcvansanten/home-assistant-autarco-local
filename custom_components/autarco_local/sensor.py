@@ -38,7 +38,7 @@ Desc(key='battery_power',translation_key='battery_power',device_class=SensorDevi
 Desc(key='grid_power',translation_key='grid_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33151,33152)),
 )
 async def async_setup_entry(hass,entry,async_add_entities):
-    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),MetricSensor(co,entry,'total_retries'),MetricSensor(co,entry,'last_success'),CountSensor(co,entry),ClockSensor(co,entry)])
+    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),MetricSensor(co,entry,'total_retries'),MetricSensor(co,entry,'reconnect_count'),MetricSensor(co,entry,'consecutive_failures'),MetricSensor(co,entry,'last_success'),CountSensor(co,entry),ClockSensor(co,entry)])
 class Base(CoordinatorEntity,SensorEntity):
     _attr_has_entity_name=True
     def __init__(self,co,entry,desc):
@@ -50,10 +50,12 @@ class MetricSensor(Base):
     def __init__(self,co,entry,key):
         m={'response_time':SensorEntityDescription(key='response_time',translation_key='response_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'success_rate':SensorEntityDescription(key='success_rate',translation_key='success_rate',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'failed_polls':SensorEntityDescription(key='failed_polls',translation_key='failed_polls',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
 'total_retries':SensorEntityDescription(key='total_retries',translation_key='total_retries',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
+'reconnect_count':SensorEntityDescription(key='reconnect_count',translation_key='reconnect_count',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
+'consecutive_failures':SensorEntityDescription(key='consecutive_failures',translation_key='consecutive_failures',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),
 'last_success':SensorEntityDescription(key='last_success',translation_key='last_success',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC)}; super().__init__(co,entry,m[key])
     @property
     def native_value(self):
-        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls'],'total_retries':h['total_retries'],'last_success':h['last_success_at']}[self.entity_description.key]
+        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls'],'total_retries':h['total_retries'],'reconnect_count':h['reconnect_count'],'consecutive_failures':h['consecutive_failures'],'last_success':h['last_success_at']}[self.entity_description.key]
 class CountSensor(Base):
     def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='register_count',translation_key='register_count',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC))
     @property

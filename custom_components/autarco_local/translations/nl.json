@@ -115,6 +115,12 @@
       },
       "total_retries": {
         "name": "Totaal aantal retries"
+      },
+      "reconnect_count": {
+        "name": "Aantal reconnects"
+      },
+      "consecutive_failures": {
+        "name": "Opeenvolgende fouten"
       }
     }
   },

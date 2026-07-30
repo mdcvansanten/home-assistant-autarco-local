@@ -30,7 +30,10 @@ async def async_unload_entry(
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.async_shutdown()
+    return unloaded
 
 
 async def async_reload_entry(
