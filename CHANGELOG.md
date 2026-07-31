@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.3.3
+## 0.3.4
 
 - Battery current and battery power polarity corrected: positive means charging, negative means discharging.
 - Diagnostic counters start clean after installing/restarting this version.

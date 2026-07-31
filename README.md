@@ -7,7 +7,11 @@ Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via M
 > [!WARNING]
 > Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
 
-## Versie 0.3.3 — Stabiliteit en diagnostiek
+## Version 0.3.4
+
+This release completes the connection diagnostics layer with uptime, downtime, availability and transition logging.
+
+## Versie 0.3.4 — Stabiliteit en diagnostiek
 
 - Correcte batterijpolariteit:
   - positief = laden;
@@ -30,7 +34,7 @@ Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via M
 ## Installatie via HACS
 
 1. Upload de inhoud van dit pakket naar de GitHub-repository.
-2. Maak release `v0.3.3`.
+2. Maak release `v0.3.4`.
 3. Werk **Autarco Local** bij via HACS.
 4. Herstart Home Assistant volledig.
 5. Open **Instellingen → Apparaten & diensten → Autarco Local**.

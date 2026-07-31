@@ -136,6 +136,30 @@
       },
       "max_poll_time": {
         "name": "Maximale pollduur"
+      },
+      "connected_since": {
+        "name": "Verbonden sinds"
+      },
+      "connection_uptime": {
+        "name": "Huidige verbindingstijd"
+      },
+      "longest_connection": {
+        "name": "Langste verbinding"
+      },
+      "last_disconnect": {
+        "name": "Laatste verbreking"
+      },
+      "last_reconnect": {
+        "name": "Laatste herverbinding"
+      },
+      "total_downtime": {
+        "name": "Totale uitvaltijd"
+      },
+      "availability": {
+        "name": "Beschikbaarheid verbinding"
+      },
+      "health_score": {
+        "name": "Gezondheidsscore verbinding"
       }
     }
   },

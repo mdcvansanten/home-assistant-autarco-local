@@ -102,7 +102,7 @@
         "name": "Register count"
       },
       "response_time": {
-        "name": "Volledige pollduur"
+        "name": "Complete poll duration"
       },
       "success_rate": {
         "name": "Network success rate"
@@ -116,20 +116,50 @@
       "total_retries": {
         "name": "Total retries"
       },
+      "reconnect_count": {
+        "name": "Reconnect count"
+      },
+      "consecutive_failures": {
+        "name": "Consecutive failures"
+      },
       "read_time": {
-        "name": "Modbus-leestijd"
+        "name": "Modbus read duration"
       },
       "connect_time": {
-        "name": "TCP-verbindingsduur"
+        "name": "TCP connect duration"
       },
       "average_poll_time": {
-        "name": "Gemiddelde pollduur"
+        "name": "Average poll duration"
       },
       "min_poll_time": {
-        "name": "Minimale pollduur"
+        "name": "Minimum poll duration"
       },
       "max_poll_time": {
-        "name": "Maximale pollduur"
+        "name": "Maximum poll duration"
+      },
+      "connected_since": {
+        "name": "Connected since"
+      },
+      "connection_uptime": {
+        "name": "Current connection uptime"
+      },
+      "longest_connection": {
+        "name": "Longest connection"
+      },
+      "last_disconnect": {
+        "name": "Last disconnect"
+      },
+      "last_reconnect": {
+        "name": "Last reconnect"
+      },
+      "total_downtime": {
+        "name": "Total downtime"
+      },
+      "availability": {
+        "name": "Connection availability"
+      },
+      "health_score": {
+        "name": "Connection health score"
       }
     }
   },

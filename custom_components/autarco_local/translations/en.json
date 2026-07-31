@@ -136,6 +136,30 @@
       },
       "max_poll_time": {
         "name": "Maximum poll duration"
+      },
+      "connected_since": {
+        "name": "Connected since"
+      },
+      "connection_uptime": {
+        "name": "Current connection uptime"
+      },
+      "longest_connection": {
+        "name": "Longest connection"
+      },
+      "last_disconnect": {
+        "name": "Last disconnect"
+      },
+      "last_reconnect": {
+        "name": "Last reconnect"
+      },
+      "total_downtime": {
+        "name": "Total downtime"
+      },
+      "availability": {
+        "name": "Connection availability"
+      },
+      "health_score": {
+        "name": "Connection health score"
       }
     }
   },
