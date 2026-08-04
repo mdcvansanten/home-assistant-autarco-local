@@ -160,6 +160,9 @@
       },
       "health_score": {
         "name": "Connection health score"
+      },
+      "disconnect_count": {
+        "name": "Disconnect count"
       }
     }
   },

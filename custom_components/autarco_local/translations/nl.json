@@ -160,6 +160,9 @@
       },
       "health_score": {
         "name": "Gezondheidsscore verbinding"
+      },
+      "disconnect_count": {
+        "name": "Aantal verbroken verbindingen"
       }
     }
   },

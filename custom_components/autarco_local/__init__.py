@@ -17,6 +17,7 @@ async def async_setup_entry(
 ) -> bool:
     """Set up Autarco Local from a config entry."""
     coordinator = AutarcoLocalCoordinator(hass, entry)
+    await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator

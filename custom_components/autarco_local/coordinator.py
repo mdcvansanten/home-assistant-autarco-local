@@ -9,6 +9,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -69,7 +70,12 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.longest_connection_seconds = 0.0
         self.total_downtime_seconds = 0.0
         self.connection_events: list[dict[str, Any]] = []
+        self.disconnect_count = 0
+        self.history_started_at = None
         self._connection_established_once = False
+        self._history_store: Store[dict[str, Any]] = Store(
+            hass, 1, f"{DOMAIN}.{entry.entry_id}.connection_history"
+        )
         self.last_unsupported_blocks: tuple[str, ...] = ()
 
         settings = AutarcoConnectionSettings(
@@ -92,9 +98,68 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             always_update=True,
         )
 
+    async def async_initialize(self) -> None:
+        """Restore persistent connection history before the first poll."""
+        stored = await self._history_store.async_load()
+        if not stored:
+            return
+
+        self.total_downtime_seconds = float(stored.get("total_downtime_seconds", 0.0))
+        self.longest_connection_seconds = float(stored.get("longest_connection_seconds", 0.0))
+        self.disconnect_count = int(stored.get("disconnect_count", 0))
+        self.last_disconnect_reason = stored.get("last_disconnect_reason")
+        self.last_disconnect_at = self._parse_stored_datetime(stored.get("last_disconnect_at"))
+        self.last_reconnect_at = self._parse_stored_datetime(stored.get("last_reconnect_at"))
+        self.history_started_at = self._parse_stored_datetime(stored.get("history_started_at"))
+        self.outage_started_at = self._parse_stored_datetime(stored.get("outage_started_at"))
+        self.connection_events = []
+        for event in stored.get("connection_events", []):
+            when = self._parse_stored_datetime(event.get("timestamp"))
+            if when is not None:
+                self.connection_events.append({
+                    "event": event.get("event"),
+                    "timestamp": when,
+                    "reason": event.get("reason"),
+                    "downtime_seconds": event.get("downtime_seconds"),
+                })
+        self.connection_events = self.connection_events[-50:]
+
     async def async_shutdown(self) -> None:
-        """Close the persistent socket during unload/reload."""
+        """Persist diagnostics and close the socket during unload/reload."""
+        if self.connected_since is not None:
+            self.longest_connection_seconds = max(
+                self.longest_connection_seconds, self.current_connection_uptime_seconds
+            )
+        await self._async_save_history()
         await self.hass.async_add_executor_job(self.client.close)
+
+    @staticmethod
+    def _parse_stored_datetime(value):
+        if not value:
+            return None
+        return dt_util.parse_datetime(value)
+
+    async def _async_save_history(self) -> None:
+        """Persist only long-term connection diagnostics."""
+        events = []
+        for event in self.connection_events[-50:]:
+            events.append({
+                "event": event.get("event"),
+                "timestamp": event["timestamp"].isoformat() if event.get("timestamp") else None,
+                "reason": event.get("reason"),
+                "downtime_seconds": event.get("downtime_seconds"),
+            })
+        await self._history_store.async_save({
+            "history_started_at": self.history_started_at.isoformat() if self.history_started_at else None,
+            "last_disconnect_at": self.last_disconnect_at.isoformat() if self.last_disconnect_at else None,
+            "last_reconnect_at": self.last_reconnect_at.isoformat() if self.last_reconnect_at else None,
+            "last_disconnect_reason": self.last_disconnect_reason,
+            "outage_started_at": self.outage_started_at.isoformat() if self.outage_started_at else None,
+            "longest_connection_seconds": round(self.longest_connection_seconds, 1),
+            "total_downtime_seconds": round(self.total_downtime_seconds, 1),
+            "disconnect_count": self.disconnect_count,
+            "connection_events": events,
+        })
 
     async def _async_update_data(self) -> dict[int, int]:
         """Fetch one complete register snapshot."""
@@ -126,7 +191,9 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
                 self.last_disconnect_reason = str(err)
                 self.outage_started_at = now
                 self.connected_since = None
+                self.disconnect_count += 1
                 self._record_connection_event("disconnected", now, str(err), None)
+                await self._async_save_history()
                 _LOGGER.warning(
                     "Autarco Modbus-verbinding verbroken na %s opeenvolgende mislukte polls: %s",
                     self.consecutive_failures,
@@ -171,13 +238,32 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         if not self._connection_established_once:
             self._connection_established_once = True
             self.connected_since = self.last_success_at
-            self._record_connection_event("connected", self.last_success_at, None, None)
-            _LOGGER.info(
-                "Autarco Modbus-verbinding opgebouwd met %s:%s (device_id=%s)",
-                self.client._settings.host,
-                self.client._settings.port,
-                self.client._settings.device_id,
-            )
+            if self.history_started_at is None:
+                self.history_started_at = self.last_success_at
+
+            if self.outage_started_at is not None:
+                downtime = max(
+                    (self.last_success_at - self.outage_started_at).total_seconds(), 0.0
+                )
+                self.total_downtime_seconds += downtime
+                self.last_reconnect_at = self.last_success_at
+                self.outage_started_at = None
+                self._record_connection_event(
+                    "reconnected", self.last_success_at, None, downtime
+                )
+                _LOGGER.info(
+                    "Autarco Modbus-verbinding na herstart hersteld na %.1f seconden",
+                    downtime,
+                )
+            else:
+                self._record_connection_event("connected", self.last_success_at, None, None)
+                _LOGGER.info(
+                    "Autarco Modbus-verbinding opgebouwd met %s:%s (device_id=%s)",
+                    self.client._settings.host,
+                    self.client._settings.port,
+                    self.client._settings.device_id,
+                )
+            await self._async_save_history()
         elif self.connected_since is None:
             downtime = 0.0
             if self.outage_started_at is not None:
@@ -187,6 +273,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.connected_since = self.last_success_at
             self.outage_started_at = None
             self._record_connection_event("reconnected", self.last_success_at, None, downtime)
+            await self._async_save_history()
             _LOGGER.info(
                 "Autarco Modbus-verbinding hersteld na %.1f seconden (%s mislukte polls)",
                 downtime,
@@ -238,12 +325,11 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             else None
         )
         elapsed = 0.0
-        if self.last_poll_at is not None and self._connection_established_once:
-            first = self.connection_events[0]["timestamp"] if self.connection_events else self.last_poll_at
-            elapsed = max((dt_util.utcnow() - first).total_seconds(), 0.0)
+        if self.history_started_at is not None:
+            elapsed = max((dt_util.utcnow() - self.history_started_at).total_seconds(), 0.0)
         downtime = self.total_downtime_seconds + self.current_outage_seconds
         availability = round(max(0.0, (elapsed - downtime) / elapsed * 100), 3) if elapsed else None
-        health_score = round(max(0.0, min(100.0, (success_rate or 0.0) - self.reconnect_count * 0.25)), 1) if total else None
+        health_score = success_rate
         return {
             "successful_polls": self.successful_polls,
             "failed_polls": self.failed_polls,
@@ -260,6 +346,8 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "last_attempts": self.last_attempts,
             "total_retries": self.total_retries,
             "reconnect_count": self.reconnect_count,
+            "disconnect_count": self.disconnect_count,
+            "history_started_at": self.history_started_at,
             "last_poll_at": self.last_poll_at,
             "last_success_at": self.last_success_at,
             "last_failure_at": self.last_failure_at,
@@ -269,6 +357,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "last_disconnect_at": self.last_disconnect_at,
             "last_reconnect_at": self.last_reconnect_at,
             "last_disconnect_reason": self.last_disconnect_reason,
+            "outage_started_at": self.outage_started_at.isoformat() if self.outage_started_at else None,
             "outage_started_at": self.outage_started_at,
             "total_downtime_seconds": round(downtime, 1),
             "availability_percent": availability,

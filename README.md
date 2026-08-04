@@ -7,46 +7,31 @@ Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via M
 > [!WARNING]
 > Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
 
-## Version 0.3.4
+## Versie 0.3.5 — Persistente en compactere diagnostiek
 
-This release completes the connection diagnostics layer with uptime, downtime, availability and transition logging.
-
-## Versie 0.3.4 — Stabiliteit en diagnostiek
-
-- Correcte batterijpolariteit:
-  - positief = laden;
-  - negatief = ontladen.
-- Persistente Modbus TCP-verbinding.
-- Volledige herbouw van de verbinding na een communicatiefout.
-- Retries met oplopende wachttijd.
-- Laatst geldige waarden blijven beschikbaar tijdens een korte storing.
-- De integratie wordt pas na drie opeenvolgende mislukte polls niet beschikbaar.
-- De eerste TCP-verbinding telt niet als reconnect.
-- Uitgebreide diagnostiek voor:
-  - complete pollduur;
-  - Modbus-leestijd;
-  - TCP-verbindingsduur;
-  - gemiddelde, minimale en maximale pollduur;
-  - reconnects, retries en opeenvolgende fouten;
-  - laatste succesvolle poll;
-  - laatste reconnectreden in het diagnostische downloadbestand.
+- Verbindingshistorie blijft behouden na een Home Assistant- of integratieherstart.
+- Persistent opgeslagen: totale downtime, laatste disconnect/reconnect, disconnectreden, langste verbinding, disconnectaantal en de laatste 50 verbindingsgebeurtenissen.
+- Beschikbaarheid wordt berekend over de bewaarde meetperiode in plaats van alleen sinds de laatste herstart.
+- Belangrijkste verbindingsdiagnostiek blijft standaard zichtbaar.
+- Detailmetingen zoals minimum/maximum/gemiddelde pollduur, TCP-connectduur, retrytellers en health score zijn voor nieuwe installaties standaard uitgeschakeld maar blijven beschikbaar.
+- De bestaande persistente Modbus TCP-verbinding en drempel van drie mislukte polls blijven ongewijzigd.
 
 ## Installatie via HACS
 
-1. Upload de inhoud van dit pakket naar de GitHub-repository.
-2. Maak release `v0.3.4`.
-3. Werk **Autarco Local** bij via HACS.
-4. Herstart Home Assistant volledig.
-5. Open **Instellingen → Apparaten & diensten → Autarco Local**.
+1. Maak/publish GitHub release `v0.3.5`.
+2. Werk **Autarco Local** bij via HACS.
+3. Herstart Home Assistant volledig.
+4. Open **Instellingen → Apparaten & diensten → Autarco Local**.
 
 Aanbevolen instellingen voor het testsysteem:
 
-- IP-adres: `192.168.178.171`
-- Poort: `502`
+- Modbus TCP-poort: `502`
 - Device-ID: `1`
 - Verversingsinterval: `30` seconden
 - Timeout: `5` seconden
 - Nieuwe pogingen: `2`
+
+> Bestaande installaties behouden de eerdere entity-registrykeuzes. Detaildiagnostiek die al ingeschakeld was kan daarom zichtbaar blijven; die kan handmatig worden uitgeschakeld.
 
 ## Roadmap
 

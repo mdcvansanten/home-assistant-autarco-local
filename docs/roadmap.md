@@ -1,48 +1,38 @@
 # Autarco Local Roadmap
 
-## Fase 1 — Stabiliteit
+## Fase 1 — Stabiliteit (v0.3.x)
 
-### v0.3.1
-
-- [x] Bekabelde loggerverbinding
-- [x] Vast IP-adres
-- [x] Nieuwe TCP-sessie per poll
-- [x] Configureerbare retries
-- [x] Batterijstroompolariteit gecorrigeerd
-- [x] Batterijvermogenspolariteit gecorrigeerd
-- [x] Logging bij uitval en herstel
-- [x] Diagnostiek voor retries en laatste succesvolle meting
-- [ ] Zeven dagen praktijktest zonder onverwachte uitval
+- [x] Bekabelde loggerverbinding en vast IP-adres
+- [x] Persistente Modbus TCP-verbinding (v0.3.2)
+- [x] Reconnect/retry-afhandeling en drie-failure beschikbaarheidsdrempel
+- [x] Batterijpolariteit gecorrigeerd (v0.3.3)
+- [x] Uptime/downtime en verbindingslogging (v0.3.4)
+- [x] Persistente verbindingshistorie na herstart (v0.3.5)
+- [ ] Meerdaagse praktijktest en vergelijking met netwerkmonitoring
 - [ ] Waarden opnieuw vergelijken met Dyness en Autarco
 
-**Exit-criterium:** minimaal zeven dagen stabiel en correcte polariteit,
-schaalfactoren en beschikbaarheid.
+**Exit-criterium:** stabiele communicatie, verklaarbare uitval en gevalideerde polariteit, schaalfactoren en beschikbaarheid.
 
-## Fase 2 — Registermapping (v0.4.0)
+## Fase 2 — Installer-instellingen uitlezen (v0.4.x)
 
-- [ ] Registerkaart afronden
-- [ ] PV-, AC-, net- en batterijregisters valideren
-- [ ] Status-, fout- en firmwarevelden identificeren
-- [ ] Niet-gevalideerde sensoren duidelijk markeren
+- [ ] Opties uit de Autarco Installer App inventariseren
+- [ ] Bijbehorende Modbus-registers identificeren en documenteren
+- [ ] Belangrijkste instellingen eerst read-only in Home Assistant aanbieden
+- [ ] Grenzen, schaalfactoren en enumeraties valideren
 
-## Fase 3 — Dashboard (v0.5.0)
+## Fase 3 — Veilige schrijffuncties (v0.5.x en verder)
 
-- [ ] Live energiestromen
-- [ ] Sessy P1 integreren
-- [ ] Dyness batterijgegevens integreren
-- [ ] Omvormer-, net-, batterij- en diagnosepagina
+- [ ] Alleen bewezen veilige instellingen schrijfbaar maken
+- [ ] Waarden vóór schrijven valideren
+- [ ] Na schrijven opnieuw uitlezen en resultaat bevestigen
+- [ ] Oude en nieuwe waarde loggen
+- [ ] Foutafhandeling en herstelpad testen
 
-## Fase 4 — Expertmodus (v0.6.0)
+## v1.0 MVP
 
-- [ ] Register Explorer
-- [ ] Register Monitor
-- [ ] CSV-export
-- [ ] Live Modbus Viewer
+- [ ] Stabiele lokale monitoring
+- [ ] Belangrijkste Installer App-instellingen herkenbaar uitlezen
+- [ ] Geselecteerde instellingen veilig lokaal wijzigen
+- [ ] Documentatie en installatie-instructies voor andere gebruikers
 
-## Fase 5 — Veilige schrijffuncties (v1.0.0)
-
-- [ ] Holding registers uitsluitend lezen
-- [ ] Registeradressen en grenzen bevestigen
-- [ ] Expertmodus standaard uitgeschakeld
-- [ ] Schrijven, teruglezen en valideren
-- [ ] Alleen bewezen veilige instellingen aanbieden
+Het gecombineerde Home Assistant-energiedashboard (Sessy P1 + Autarco + Dyness) is een apart project en geen afhankelijkheid van Autarco Local.

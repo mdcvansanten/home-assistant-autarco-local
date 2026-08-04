@@ -1,15 +1,28 @@
 # Changelog
 
+## 0.3.5
+
+- Persistent connection history across Home Assistant and integration restarts.
+- Persist total downtime, last disconnect/reconnect, last disconnect reason, longest connection, disconnect count and the last 50 connection events.
+- Connection availability now spans the persisted observation period.
+- Added a dedicated disconnect count.
+- Reduced default diagnostic clutter for new installs; detailed poll/network counters remain available but are disabled by default.
+- No changes to register mapping, polling interval, retry policy or the three-failure availability threshold.
+- Documentation and historical version references corrected.
+
 ## 0.3.4
 
-- Battery current and battery power polarity corrected: positive means charging, negative means discharging.
-- Diagnostic counters start clean after installing/restarting this version.
-- Initial TCP connection is no longer counted as a reconnect.
+- Added connection uptime, downtime, availability and connection-transition diagnostics.
+- Added connection established/lost/restored logging.
+- Added last disconnect, last reconnect, longest connection and connection health diagnostics.
+- Initial TCP connection is not counted as a reconnect.
 - Separate diagnostics for complete poll duration, register read duration and TCP connect duration.
-- Added average, minimum and maximum poll duration since integration startup.
-- Added the last reconnect reason to downloaded diagnostics.
 - Existing persistent connection, retries and three-failure availability threshold retained.
 
+## 0.3.3
+
+- Battery current and battery power polarity corrected: positive means charging, negative means discharging.
+- No register mapping changes.
 
 ## 0.3.2
 
@@ -20,18 +33,14 @@
 - Connection becomes unavailable only after three consecutive failed polls.
 - New diagnostics for reconnects, consecutive failures and suppressed failures.
 - Clean Modbus client shutdown during reload and unload.
-- No changes to the existing register mapping or battery polarity.
 
 ## 0.3.1
 
-- Batterijstroom: positief is laden, negatief is ontladen.
-- Batterijvermogen: positief is laden, negatief is ontladen.
-- Verbeterde reconnect- en retrylogging.
-- Logging meldt alleen de eerste uitval en het latere herstel.
-- Nieuwe diagnostiek: totaal retries en laatste succesvolle meting.
-- Uitgebreide netwerkgezondheidsgegevens.
-- Roadmap, registerkaart en geteste hardware toegevoegd.
+- Improved reconnect and retry logging.
+- Logging reports the first failure and later recovery.
+- Added retry and last-success diagnostics.
+- Roadmap, register map and tested-hardware documentation added.
 
 ## 0.3.0
 
-- Eerste benoemde sensoren en netwerkgezondheid.
+- First named sensors and network-health diagnostics.

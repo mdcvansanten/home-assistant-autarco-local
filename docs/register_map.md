@@ -24,7 +24,7 @@ Statuswaarden:
 | 33149–33150 | Batterijvermogen | 1 W | bevestigd |
 | 33151–33152 | Netvermogen | 1 W | waarschijnlijk |
 
-Polariteitsconventie vanaf v0.3.1:
+Polariteitsconventie vanaf v0.3.3:
 
 - positief batterijvermogen/stroom = laden;
 - negatief batterijvermogen/stroom = ontladen.

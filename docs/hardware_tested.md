@@ -14,5 +14,5 @@
 ## Netwerk
 
 - Logger met vaste DHCP-reservering
-- Logger-IP tijdens v0.3.1-test: 192.168.178.171
+- Logger-IP tijdens tests: 192.168.178.171
 - Home Assistant bekabeld verbonden
