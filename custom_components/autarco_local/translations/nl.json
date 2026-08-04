@@ -44,126 +44,56 @@
       }
     },
     "sensor": {
-      "active_power": {
-        "name": "Actief omvormervermogen"
-      },
-      "battery_current": {
-        "name": "Batterijstroom"
-      },
-      "battery_power": {
-        "name": "Batterijvermogen"
-      },
-      "battery_soc": {
-        "name": "Batterij-SOC"
-      },
-      "battery_voltage": {
-        "name": "Batterijspanning"
-      },
-      "device_time": {
-        "name": "Omvormerklok"
-      },
-      "failed_polls": {
-        "name": "Mislukte metingen"
-      },
-      "grid_frequency": {
-        "name": "Netfrequentie"
-      },
-      "grid_power": {
-        "name": "Netvermogen"
-      },
-      "house_load_power": {
-        "name": "Huisverbruik"
-      },
-      "phase_voltage_l1": {
-        "name": "Fasespanning L1"
-      },
-      "phase_voltage_l2": {
-        "name": "Fasespanning L2"
-      },
-      "phase_voltage_l3": {
-        "name": "Fasespanning L3"
-      },
-      "pv_current_1": {
-        "name": "PV1-stroom"
-      },
-      "pv_current_2": {
-        "name": "PV2-stroom"
-      },
-      "pv_power": {
-        "name": "PV-vermogen"
-      },
-      "pv_voltage_1": {
-        "name": "PV1-spanning"
-      },
-      "pv_voltage_2": {
-        "name": "PV2-spanning"
-      },
-      "register_count": {
-        "name": "Aantal registers"
-      },
-      "response_time": {
-        "name": "Volledige pollduur"
-      },
-      "success_rate": {
-        "name": "Netwerk succespercentage"
-      },
-      "temperature": {
-        "name": "Omvormertemperatuur"
-      },
-      "last_success": {
-        "name": "Laatste succesvolle meting"
-      },
-      "total_retries": {
-        "name": "Totaal aantal retries"
-      },
-      "reconnect_count": {
-        "name": "Aantal reconnects"
-      },
-      "consecutive_failures": {
-        "name": "Opeenvolgende fouten"
-      },
-      "read_time": {
-        "name": "Modbus-leestijd"
-      },
-      "connect_time": {
-        "name": "TCP-verbindingsduur"
-      },
-      "average_poll_time": {
-        "name": "Gemiddelde pollduur"
-      },
-      "min_poll_time": {
-        "name": "Minimale pollduur"
-      },
-      "max_poll_time": {
-        "name": "Maximale pollduur"
-      },
-      "connected_since": {
-        "name": "Verbonden sinds"
-      },
-      "connection_uptime": {
-        "name": "Huidige verbindingstijd"
-      },
-      "longest_connection": {
-        "name": "Langste verbinding"
-      },
-      "last_disconnect": {
-        "name": "Laatste verbreking"
-      },
-      "last_reconnect": {
-        "name": "Laatste herverbinding"
-      },
-      "total_downtime": {
-        "name": "Totale uitvaltijd"
-      },
-      "availability": {
-        "name": "Beschikbaarheid verbinding"
-      },
-      "health_score": {
-        "name": "Gezondheidsscore verbinding"
-      },
-      "disconnect_count": {
-        "name": "Aantal verbroken verbindingen"
-      }
+      "active_power": {"name": "Actief omvormervermogen"},
+      "battery_current": {"name": "Batterijstroom"},
+      "battery_power": {"name": "Batterijvermogen"},
+      "battery_soc": {"name": "Batterij-SOC"},
+      "battery_voltage": {"name": "Batterijspanning"},
+      "device_time": {"name": "Omvormerklok"},
+      "failed_polls": {"name": "Mislukte metingen"},
+      "grid_frequency": {"name": "Netfrequentie"},
+      "grid_power": {"name": "Netvermogen"},
+      "house_load_power": {"name": "Huisverbruik"},
+      "phase_voltage_l1": {"name": "Fasespanning L1"},
+      "phase_voltage_l2": {"name": "Fasespanning L2"},
+      "phase_voltage_l3": {"name": "Fasespanning L3"},
+      "pv_current_1": {"name": "PV1-stroom"},
+      "pv_current_2": {"name": "PV2-stroom"},
+      "pv_power": {"name": "PV-vermogen"},
+      "pv_voltage_1": {"name": "PV1-spanning"},
+      "pv_voltage_2": {"name": "PV2-spanning"},
+      "register_count": {"name": "Aantal registers"},
+      "response_time": {"name": "Volledige pollduur"},
+      "success_rate": {"name": "Netwerk succespercentage"},
+      "temperature": {"name": "Omvormertemperatuur"},
+      "last_success": {"name": "Laatste succesvolle meting"},
+      "total_retries": {"name": "Totaal aantal retries"},
+      "reconnect_count": {"name": "Aantal reconnects"},
+      "consecutive_failures": {"name": "Opeenvolgende fouten"},
+      "read_time": {"name": "Modbus-leestijd"},
+      "connect_time": {"name": "TCP-verbindingsduur"},
+      "average_poll_time": {"name": "Gemiddelde pollduur"},
+      "min_poll_time": {"name": "Minimale pollduur"},
+      "max_poll_time": {"name": "Maximale pollduur"},
+      "connected_since": {"name": "Verbonden sinds"},
+      "connection_uptime": {"name": "Huidige verbindingstijd"},
+      "longest_connection": {"name": "Langste verbinding"},
+      "last_disconnect": {"name": "Laatste verbreking"},
+      "last_reconnect": {"name": "Laatste herverbinding"},
+      "total_downtime": {"name": "Totale uitvaltijd"},
+      "availability": {"name": "Beschikbaarheid verbinding"},
+      "health_score": {"name": "Gezondheidsscore verbinding"},
+      "disconnect_count": {"name": "Aantal verbroken verbindingen"},
+      "setting_battery_model": {"name": "Batterijmodel"},
+      "setting_max_charge_soc": {"name": "Maximale laad-SOC"},
+      "setting_overdischarge_soc": {"name": "Minimale ontlaad-SOC"},
+      "setting_max_charge_current": {"name": "Maximale laadstroom"},
+      "setting_max_discharge_current": {"name": "Maximale ontlaadstroom"},
+      "setting_force_charge_soc": {"name": "Geforceerde laad-SOC"},
+      "setting_backup_soc": {"name": "Backup-SOC"},
+      "setting_storage_mode": {"name": "Opslagmodus"},
+      "setting_battery_max_charge_current": {"name": "Batterij maximale laadstroom"},
+      "setting_battery_max_discharge_current": {"name": "Batterij maximale ontlaadstroom"}
     }
   },
   "exceptions": {
