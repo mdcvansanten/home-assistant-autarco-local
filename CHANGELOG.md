@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.4.0
+
+- Start van fase 2: read-only uitlezen van inverterinstellingen via holding registers.
+- Eerste set instellingen: batterijmodel, SOC-limieten, laad-/ontlaadstroomlimieten,
+  force-charge SOC, backup SOC en opslagmodus.
+- Opslagmodus decodeert de mode-bits en toont onafhankelijke modifiers als attributen.
+- Instellingen worden bewust slechts iedere 5 minuten gelezen.
+- Niet-ondersteunde instellingsregisters worden afzonderlijk overgeslagen.
+- Een settings-read fout maakt de normale realtime monitoring niet onbeschikbaar.
+- Settings-registers en leesstatus toegevoegd aan het diagnostische downloadbestand.
+- Geen Modbus write-functionaliteit toegevoegd.
+- Kleine correctie in de diagnostiek: dubbele `outage_started_at`-waarde verwijderd.
+
 ## 0.3.5
 
 - Persistent connection history across Home Assistant and integration restarts.
