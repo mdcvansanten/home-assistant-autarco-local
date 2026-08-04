@@ -44,126 +44,56 @@
       }
     },
     "sensor": {
-      "active_power": {
-        "name": "Active inverter power"
-      },
-      "battery_current": {
-        "name": "Battery current"
-      },
-      "battery_power": {
-        "name": "Battery power"
-      },
-      "battery_soc": {
-        "name": "Battery state of charge"
-      },
-      "battery_voltage": {
-        "name": "Battery voltage"
-      },
-      "device_time": {
-        "name": "Inverter clock"
-      },
-      "failed_polls": {
-        "name": "Failed polls"
-      },
-      "grid_frequency": {
-        "name": "Grid frequency"
-      },
-      "grid_power": {
-        "name": "Grid power"
-      },
-      "house_load_power": {
-        "name": "House load power"
-      },
-      "phase_voltage_l1": {
-        "name": "Phase voltage L1"
-      },
-      "phase_voltage_l2": {
-        "name": "Phase voltage L2"
-      },
-      "phase_voltage_l3": {
-        "name": "Phase voltage L3"
-      },
-      "pv_current_1": {
-        "name": "PV1 current"
-      },
-      "pv_current_2": {
-        "name": "PV2 current"
-      },
-      "pv_power": {
-        "name": "PV power"
-      },
-      "pv_voltage_1": {
-        "name": "PV1 voltage"
-      },
-      "pv_voltage_2": {
-        "name": "PV2 voltage"
-      },
-      "register_count": {
-        "name": "Register count"
-      },
-      "response_time": {
-        "name": "Complete poll duration"
-      },
-      "success_rate": {
-        "name": "Network success rate"
-      },
-      "temperature": {
-        "name": "Inverter temperature"
-      },
-      "last_success": {
-        "name": "Last successful poll"
-      },
-      "total_retries": {
-        "name": "Total retries"
-      },
-      "reconnect_count": {
-        "name": "Reconnect count"
-      },
-      "consecutive_failures": {
-        "name": "Consecutive failures"
-      },
-      "read_time": {
-        "name": "Modbus read duration"
-      },
-      "connect_time": {
-        "name": "TCP connect duration"
-      },
-      "average_poll_time": {
-        "name": "Average poll duration"
-      },
-      "min_poll_time": {
-        "name": "Minimum poll duration"
-      },
-      "max_poll_time": {
-        "name": "Maximum poll duration"
-      },
-      "connected_since": {
-        "name": "Connected since"
-      },
-      "connection_uptime": {
-        "name": "Current connection uptime"
-      },
-      "longest_connection": {
-        "name": "Longest connection"
-      },
-      "last_disconnect": {
-        "name": "Last disconnect"
-      },
-      "last_reconnect": {
-        "name": "Last reconnect"
-      },
-      "total_downtime": {
-        "name": "Total downtime"
-      },
-      "availability": {
-        "name": "Connection availability"
-      },
-      "health_score": {
-        "name": "Connection health score"
-      },
-      "disconnect_count": {
-        "name": "Disconnect count"
-      }
+      "active_power": {"name": "Active inverter power"},
+      "battery_current": {"name": "Battery current"},
+      "battery_power": {"name": "Battery power"},
+      "battery_soc": {"name": "Battery state of charge"},
+      "battery_voltage": {"name": "Battery voltage"},
+      "device_time": {"name": "Inverter clock"},
+      "failed_polls": {"name": "Failed polls"},
+      "grid_frequency": {"name": "Grid frequency"},
+      "grid_power": {"name": "Grid power"},
+      "house_load_power": {"name": "House load power"},
+      "phase_voltage_l1": {"name": "Phase voltage L1"},
+      "phase_voltage_l2": {"name": "Phase voltage L2"},
+      "phase_voltage_l3": {"name": "Phase voltage L3"},
+      "pv_current_1": {"name": "PV1 current"},
+      "pv_current_2": {"name": "PV2 current"},
+      "pv_power": {"name": "PV power"},
+      "pv_voltage_1": {"name": "PV1 voltage"},
+      "pv_voltage_2": {"name": "PV2 voltage"},
+      "register_count": {"name": "Register count"},
+      "response_time": {"name": "Complete poll duration"},
+      "success_rate": {"name": "Network success rate"},
+      "temperature": {"name": "Inverter temperature"},
+      "last_success": {"name": "Last successful poll"},
+      "total_retries": {"name": "Total retries"},
+      "reconnect_count": {"name": "Reconnect count"},
+      "consecutive_failures": {"name": "Consecutive failures"},
+      "read_time": {"name": "Modbus read duration"},
+      "connect_time": {"name": "TCP connect duration"},
+      "average_poll_time": {"name": "Average poll duration"},
+      "min_poll_time": {"name": "Minimum poll duration"},
+      "max_poll_time": {"name": "Maximum poll duration"},
+      "connected_since": {"name": "Connected since"},
+      "connection_uptime": {"name": "Current connection uptime"},
+      "longest_connection": {"name": "Longest connection"},
+      "last_disconnect": {"name": "Last disconnect"},
+      "last_reconnect": {"name": "Last reconnect"},
+      "total_downtime": {"name": "Total downtime"},
+      "availability": {"name": "Connection availability"},
+      "health_score": {"name": "Connection health score"},
+      "disconnect_count": {"name": "Disconnect count"},
+      "setting_battery_model": {"name": "Battery model"},
+      "setting_max_charge_soc": {"name": "Max charge SOC"},
+      "setting_overdischarge_soc": {"name": "Overdischarge SOC"},
+      "setting_max_charge_current": {"name": "Max charge current"},
+      "setting_max_discharge_current": {"name": "Max discharge current"},
+      "setting_force_charge_soc": {"name": "Force charge SOC"},
+      "setting_backup_soc": {"name": "Backup SOC"},
+      "setting_storage_mode": {"name": "Storage mode"},
+      "setting_battery_max_charge_current": {"name": "Battery max charge current"},
+      "setting_battery_max_discharge_current": {"name": "Battery max discharge current"}
     }
   },
   "exceptions": {
