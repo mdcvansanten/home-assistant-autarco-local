@@ -11,14 +11,17 @@
 - [ ] Meerdaagse praktijktest en vergelijking met netwerkmonitoring
 - [ ] Waarden opnieuw vergelijken met Dyness en Autarco
 
-**Exit-criterium:** stabiele communicatie, verklaarbare uitval en gevalideerde polariteit, schaalfactoren en beschikbaarheid.
+**Exit-criterium:** stabiele communicatie, verklaarbare uitval en gevalideerde
+polariteit, schaalfactoren en beschikbaarheid.
 
 ## Fase 2 — Installer-instellingen uitlezen (v0.4.x)
 
-- [ ] Opties uit de Autarco Installer App inventariseren
-- [ ] Bijbehorende Modbus-registers identificeren en documenteren
-- [ ] Belangrijkste instellingen eerst read-only in Home Assistant aanbieden
+- [ ] Opties uit de Autarco Installer App volledig inventariseren
+- [x] Eerste relevante Modbus holding registers identificeren en documenteren
+- [x] Eerste set instellingen read-only in Home Assistant aanbieden (v0.4.0)
+- [ ] Waarden en benamingen vergelijken met de Autarco Installer App
 - [ ] Grenzen, schaalfactoren en enumeraties valideren
+- [ ] TOU/charge-discharge schedules inventariseren en read-only toevoegen
 
 ## Fase 3 — Veilige schrijffuncties (v0.5.x en verder)
 
@@ -35,4 +38,5 @@
 - [ ] Geselecteerde instellingen veilig lokaal wijzigen
 - [ ] Documentatie en installatie-instructies voor andere gebruikers
 
-Het gecombineerde Home Assistant-energiedashboard (Sessy P1 + Autarco + Dyness) is een apart project en geen afhankelijkheid van Autarco Local.
+Het gecombineerde Home Assistant-energiedashboard (Sessy P1 + Autarco + Dyness)
+is een apart project en geen afhankelijkheid van Autarco Local.
