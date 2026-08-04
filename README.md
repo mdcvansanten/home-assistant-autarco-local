@@ -2,36 +2,64 @@
 
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
-Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via Modbus TCP.
+Lokale Home Assistant-integratie voor Autarco-omvormers via Modbus TCP.
 
 > [!WARNING]
-> Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
+> v0.4.0 is nog steeds **uitsluitend-lezen**. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
 
-## Versie 0.3.5 — Persistente en compactere diagnostiek
+## Versie 0.4.0 — Installer-instellingen uitlezen
 
-- Verbindingshistorie blijft behouden na een Home Assistant- of integratieherstart.
-- Persistent opgeslagen: totale downtime, laatste disconnect/reconnect, disconnectreden, langste verbinding, disconnectaantal en de laatste 50 verbindingsgebeurtenissen.
-- Beschikbaarheid wordt berekend over de bewaarde meetperiode in plaats van alleen sinds de laatste herstart.
-- Belangrijkste verbindingsdiagnostiek blijft standaard zichtbaar.
-- Detailmetingen zoals minimum/maximum/gemiddelde pollduur, TCP-connectduur, retrytellers en health score zijn voor nieuwe installaties standaard uitgeschakeld maar blijven beschikbaar.
-- De bestaande persistente Modbus TCP-verbinding en drempel van drie mislukte polls blijven ongewijzigd.
+v0.4.0 start fase 2 van de roadmap. Naast de bestaande realtime monitoring leest
+de integratie nu een eerste, bewust beperkte set inverterinstellingen uit via
+**Modbus holding registers**.
+
+De eerste read-only instellingen zijn:
+
+- Batterijmodel
+- Maximale laad-SOC
+- Minimale ontlaad-SOC
+- Maximale laadstroom
+- Maximale ontlaadstroom
+- Geforceerde laad-SOC
+- Backup-SOC
+- Opslagmodus
+- Batterij maximale laadstroom
+- Batterij maximale ontlaadstroom
+
+De opslagmodus toont daarnaast als attributen onder andere Time Of Use,
+battery wakeup, reserve mode en of laden vanaf het net is toegestaan.
+
+### Veiligheidskeuze
+
+De normale meetwaarden blijven elke ingestelde scanperiode worden gepolld.
+Instellingen veranderen veel minder vaak en worden daarom slechts iedere
+**5 minuten** gelezen. Een fout of niet-ondersteund instellingsregister maakt
+de normale Autarco-monitoring niet onbeschikbaar.
+
+De registers zijn gebaseerd op de Solis Hybrid Modbus-registerindeling die bij
+de S2.LH-MII-familie hoort. In v0.4.x valideren we de waarden stap voor stap
+tegen de Autarco Installer App op echte hardware voordat er enige
+schrijffunctionaliteit wordt toegevoegd.
+
+Zie [`docs/settings.md`](docs/settings.md) voor de validatiestatus per instelling.
 
 ## Installatie via HACS
 
-1. Maak/publish GitHub release `v0.3.5`.
+Voor een officiële release:
+
+1. Publiceer GitHub release `v0.4.0`.
 2. Werk **Autarco Local** bij via HACS.
 3. Herstart Home Assistant volledig.
 4. Open **Instellingen → Apparaten & diensten → Autarco Local**.
+5. De read-only instellingen verschijnen in de sectie **Configuratie**.
 
-Aanbevolen instellingen voor het testsysteem:
+Aanbevolen verbindingsinstellingen voor het testsysteem:
 
 - Modbus TCP-poort: `502`
 - Device-ID: `1`
 - Verversingsinterval: `30` seconden
 - Timeout: `5` seconden
 - Nieuwe pogingen: `2`
-
-> Bestaande installaties behouden de eerdere entity-registrykeuzes. Detaildiagnostiek die al ingeschakeld was kan daarom zichtbaar blijven; die kan handmatig worden uitgeschakeld.
 
 ## Roadmap
 
