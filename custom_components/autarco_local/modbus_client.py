@@ -1,4 +1,5 @@
 """Thread-safe, read-only Modbus TCP client for Autarco Local."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from .const import (
     VALIDATION_REGISTER_COUNT,
     VALIDATION_REGISTER_START,
 )
+from .settings import SETTING_REGISTER_ADDRESSES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -37,7 +39,7 @@ class AutarcoConnectionSettings:
 
 @dataclass(slots=True, frozen=True)
 class AutarcoReadResult:
-    """Result of one complete register poll."""
+    """Result of one complete input-register poll."""
 
     registers: dict[int, int]
     poll_duration_ms: float
@@ -47,6 +49,15 @@ class AutarcoReadResult:
     unsupported_blocks: tuple[str, ...]
     reconnects: int
     reconnect_reason: str | None
+
+
+@dataclass(slots=True, frozen=True)
+class AutarcoSettingsReadResult:
+    """Result of one optional read-only holding-register settings poll."""
+
+    registers: dict[int, int]
+    read_duration_ms: float
+    unsupported_registers: tuple[int, ...]
 
 
 class AutarcoModbusClient:
@@ -80,7 +91,9 @@ class AutarcoModbusClient:
         with self._lock:
             self._disconnect_locked()
 
-    def _ensure_connected_locked(self, reason: str | None = None) -> tuple[float, bool, str | None]:
+    def _ensure_connected_locked(
+        self, reason: str | None = None
+    ) -> tuple[float, bool, str | None]:
         """Ensure a usable TCP connection.
 
         Returns connect duration, whether this was a reconnect (not the first
@@ -131,7 +144,7 @@ class AutarcoModbusClient:
                 temporary.close()
 
     def read_all(self) -> AutarcoReadResult:
-        """Read all known registers, retrying through clean TCP reconnects."""
+        """Read all known input registers with clean TCP reconnects."""
         with self._lock:
             poll_started = time.monotonic()
             last_error: AutarcoConnectionError | None = None
@@ -183,8 +196,66 @@ class AutarcoModbusClient:
                 str(last_error) if last_error else "Onbekende communicatiefout"
             )
 
+    def read_settings(self) -> AutarcoSettingsReadResult:
+        """Read selected holding registers without ever writing to the inverter.
+
+        Settings are deliberately polled separately and slowly. Unsupported
+        holding registers are skipped individually so one firmware difference
+        does not affect normal monitoring.
+        """
+        with self._lock:
+            started = time.monotonic()
+            try:
+                self._ensure_connected_locked("socket niet verbonden vóór settings-poll")
+                client = self._client
+                if client is None or not client.connected:
+                    raise AutarcoConnectionError("Modbus-socket is niet verbonden")
+
+                registers: dict[int, int] = {}
+                unsupported: list[int] = []
+
+                for address in SETTING_REGISTER_ADDRESSES:
+                    try:
+                        result = client.read_holding_registers(
+                            address,
+                            count=1,
+                            device_id=self._settings.device_id,
+                        )
+                    except (ModbusException, OSError, TimeoutError) as err:
+                        self._disconnect_locked()
+                        raise AutarcoConnectionError(
+                            f"Leesfout instelling {address}: "
+                            f"{type(err).__name__}: {err}"
+                        ) from err
+
+                    if result.isError():
+                        unsupported.append(address)
+                        _LOGGER.debug(
+                            "Instellingsregister %s niet ondersteund: %s",
+                            address,
+                            result,
+                        )
+                        continue
+
+                    values = getattr(result, "registers", None) or []
+                    if not values:
+                        unsupported.append(address)
+                        continue
+                    registers[address] = int(values[0])
+
+                return AutarcoSettingsReadResult(
+                    registers=registers,
+                    read_duration_ms=round((time.monotonic() - started) * 1000, 1),
+                    unsupported_registers=tuple(unsupported),
+                )
+            except AutarcoConnectionError:
+                raise
+            except (ModbusException, OSError, TimeoutError) as err:
+                self._disconnect_locked()
+                raise AutarcoConnectionError(str(err)) from err
+
     def _read_once_locked(self) -> tuple[dict[int, int], list[str]]:
-        """Read one snapshot over the existing connection."""
+        """Read one input-register snapshot over the existing connection."""
         client = self._client
         if client is None or not client.connected:
             raise AutarcoConnectionError("Modbus-socket is niet verbonden")
