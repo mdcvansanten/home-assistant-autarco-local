@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.2
+
+- Corrected English runtime translations for the new v0.4 PV entities so Home Assistant shows descriptive entity names instead of generic `Power`, `Current`, `Voltage` and `Energy` labels.
+- Corrected the integration manifest version to `0.4.2` so HACS can identify the release properly.
+- Supersedes the accidentally published `v0.4.1` tag whose manifest still reported version `0.4.0`.
+- No Modbus register, polling, retry or write-behaviour changes.
+
+## 0.4.1
+
+- Packaging-only patch attempt for the v0.4 PV entity translation fix.
+- The published tag still contained manifest version `0.4.0`; use v0.4.2 instead.
+
 ## 0.4.0
 
 - Repurposed v0.4.0 as a dedicated PV / solar monitoring release.
