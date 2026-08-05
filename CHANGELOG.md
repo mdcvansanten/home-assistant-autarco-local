@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.4.2
+
+- Corrected English runtime translations for the new v0.4 PV entities so Home Assistant shows descriptive entity names instead of generic `Power`, `Current`, `Voltage` and `Energy` labels.
+- Corrected the integration manifest version to `0.4.2` so HACS can identify the release properly.
+- Supersedes the accidentally published `v0.4.1` tag whose manifest still reported version `0.4.0`.
+- No Modbus register, polling, retry or write-behaviour changes.
+
+## 0.4.1
+
+- Packaging-only patch attempt for the v0.4 PV entity translation fix.
+- The published tag still contained manifest version `0.4.0`; use v0.4.2 instead.
+
+## 0.4.0
+
+- Repurposed v0.4.0 as a dedicated PV / solar monitoring release.
+- Added calculated power per PV input/MPPT for PV1 and PV2.
+- Added PV3/PV4 voltage, current and calculated power as disabled-by-default entities.
+- Added PV energy today, current month, current year and lifetime total.
+- Added a binary sensor showing whether PV production is currently active.
+- Added optional PV alarm-code and DC-bus-voltage diagnostics.
+- Existing inverter, battery and connection monitoring retained.
+- No holding-register settings polling and no Modbus write functionality in this release.
+- Read-only inverter-settings work moved to the next roadmap phase.
+
 ## 0.3.5
 
 - Persistent connection history across Home Assistant and integration restarts.

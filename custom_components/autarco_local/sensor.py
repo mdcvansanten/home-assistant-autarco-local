@@ -1,83 +1,260 @@
 """Sensors for Autarco Local."""
 from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Callable
-from homeassistant.components.sensor import SensorDeviceClass,SensorEntity,SensorEntityDescription,SensorStateClass
-from homeassistant.const import EntityCategory,UnitOfElectricCurrent,UnitOfElectricPotential,UnitOfFrequency,UnitOfPower,UnitOfTemperature,UnitOfTime,PERCENTAGE
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import (
+    EntityCategory,
+    PERCENTAGE,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfFrequency,
+    UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
+
 from .const import DOMAIN
 
-def u16(d,a): return d.get(a)
-def s16(d,a):
-    v=d.get(a); return None if v is None else (v-65536 if v>=32768 else v)
-def u32(d,h,l): return None if h not in d or l not in d else (d[h]<<16)|d[l]
-def s32(d,h,l):
-    v=u32(d,h,l); return None if v is None else (v-4294967296 if v>=2147483648 else v)
-@dataclass(frozen=True,kw_only=True)
-class Desc(SensorEntityDescription): value_fn:Callable
-S=(
-Desc(key='pv_voltage_1',translation_key='pv_voltage_1',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33049)/10 if u16(d,33049) is not None else None),
-Desc(key='pv_current_1',translation_key='pv_current_1',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33050)/10 if u16(d,33050) is not None else None),
-Desc(key='pv_voltage_2',translation_key='pv_voltage_2',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33051)/10 if u16(d,33051) is not None else None),
-Desc(key='pv_current_2',translation_key='pv_current_2',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33052)/10 if u16(d,33052) is not None else None),
-Desc(key='pv_power',translation_key='pv_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u32(d,33057,33058)),
-Desc(key='phase_voltage_l1',translation_key='phase_voltage_l1',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33073)/10 if u16(d,33073) is not None else None),
-Desc(key='phase_voltage_l2',translation_key='phase_voltage_l2',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33074)/10 if u16(d,33074) is not None else None),
-Desc(key='phase_voltage_l3',translation_key='phase_voltage_l3',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33075)/10 if u16(d,33075) is not None else None),
-Desc(key='active_power',translation_key='active_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33079,33080)),
-Desc(key='temperature',translation_key='temperature',device_class=SensorDeviceClass.TEMPERATURE,native_unit_of_measurement=UnitOfTemperature.CELSIUS,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s16(d,33093)/10 if s16(d,33093) is not None else None),
-Desc(key='grid_frequency',translation_key='grid_frequency',device_class=SensorDeviceClass.FREQUENCY,native_unit_of_measurement=UnitOfFrequency.HERTZ,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33094)/100 if u16(d,33094) is not None else None),
-Desc(key='battery_voltage',translation_key='battery_voltage',device_class=SensorDeviceClass.VOLTAGE,native_unit_of_measurement=UnitOfElectricPotential.VOLT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33133)/10 if u16(d,33133) is not None else None),
-Desc(key='battery_current',translation_key='battery_current',device_class=SensorDeviceClass.CURRENT,native_unit_of_measurement=UnitOfElectricCurrent.AMPERE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u16(d,33134)/10 if u16(d,33134) is not None else None),
-Desc(key='battery_soc',translation_key='battery_soc',device_class=SensorDeviceClass.BATTERY,native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33139)),
-Desc(key='house_load_power',translation_key='house_load_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:u16(d,33147)),
-Desc(key='battery_power',translation_key='battery_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:(-1 if u16(d,33135)==1 else 1)*u32(d,33149,33150) if u32(d,33149,33150) is not None else None),
-Desc(key='grid_power',translation_key='grid_power',device_class=SensorDeviceClass.POWER,native_unit_of_measurement=UnitOfPower.WATT,state_class=SensorStateClass.MEASUREMENT,value_fn=lambda d:s32(d,33151,33152)),
+
+def u16(data, address):
+    return data.get(address)
+
+
+def s16(data, address):
+    value = data.get(address)
+    return None if value is None else (value - 65536 if value >= 32768 else value)
+
+
+def u32(data, high, low):
+    return None if high not in data or low not in data else (data[high] << 16) | data[low]
+
+
+def s32(data, high, low):
+    value = u32(data, high, low)
+    return None if value is None else (value - 4294967296 if value >= 2147483648 else value)
+
+
+def scaled(data, address, factor):
+    value = u16(data, address)
+    return None if value is None else value * factor
+
+
+def pv_power(data, voltage_register, current_register):
+    voltage = scaled(data, voltage_register, 0.1)
+    current = scaled(data, current_register, 0.1)
+    return None if voltage is None or current is None else round(voltage * current, 1)
+
+
+@dataclass(frozen=True, kw_only=True)
+class Desc(SensorEntityDescription):
+    value_fn: Callable
+
+
+def d(
+    key,
+    value_fn,
+    device_class=None,
+    unit=None,
+    state_class=SensorStateClass.MEASUREMENT,
+    *,
+    enabled=True,
+    category=None,
+):
+    return Desc(
+        key=key,
+        translation_key=key,
+        device_class=device_class,
+        native_unit_of_measurement=unit,
+        state_class=state_class,
+        entity_registry_enabled_default=enabled,
+        entity_category=category,
+        value_fn=value_fn,
+    )
+
+
+SENSORS = (
+    # PV / MPPT
+    d("pv_voltage_1", lambda x: scaled(x, 33049, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d("pv_current_1", lambda x: scaled(x, 33050, 0.1), SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE),
+    d("pv_power_1", lambda x: pv_power(x, 33049, 33050), SensorDeviceClass.POWER, UnitOfPower.WATT),
+    d("pv_voltage_2", lambda x: scaled(x, 33051, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d("pv_current_2", lambda x: scaled(x, 33052, 0.1), SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE),
+    d("pv_power_2", lambda x: pv_power(x, 33051, 33052), SensorDeviceClass.POWER, UnitOfPower.WATT),
+    d("pv_voltage_3", lambda x: scaled(x, 33053, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT, enabled=False),
+    d("pv_current_3", lambda x: scaled(x, 33054, 0.1), SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE, enabled=False),
+    d("pv_power_3", lambda x: pv_power(x, 33053, 33054), SensorDeviceClass.POWER, UnitOfPower.WATT, enabled=False),
+    d("pv_voltage_4", lambda x: scaled(x, 33055, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT, enabled=False),
+    d("pv_current_4", lambda x: scaled(x, 33056, 0.1), SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE, enabled=False),
+    d("pv_power_4", lambda x: pv_power(x, 33055, 33056), SensorDeviceClass.POWER, UnitOfPower.WATT, enabled=False),
+    d("pv_power", lambda x: u32(x, 33057, 33058), SensorDeviceClass.POWER, UnitOfPower.WATT),
+    d("pv_energy_total", lambda x: u32(x, 33029, 33030), SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, SensorStateClass.TOTAL_INCREASING),
+    d("pv_energy_month", lambda x: u32(x, 33031, 33032), SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, SensorStateClass.TOTAL_INCREASING),
+    d("pv_energy_today", lambda x: scaled(x, 33035, 0.1), SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, SensorStateClass.TOTAL_INCREASING),
+    d("pv_energy_year", lambda x: u32(x, 33037, 33038), SensorDeviceClass.ENERGY, UnitOfEnergy.KILO_WATT_HOUR, SensorStateClass.TOTAL_INCREASING),
+    d("pv_alarm_code", lambda x: u16(x, 33070), enabled=False, category=EntityCategory.DIAGNOSTIC),
+    d("pv_bus_voltage", lambda x: scaled(x, 33071, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT, enabled=False, category=EntityCategory.DIAGNOSTIC),
+
+    # Existing inverter / battery monitoring
+    d("phase_voltage_l1", lambda x: scaled(x, 33073, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d("phase_voltage_l2", lambda x: scaled(x, 33074, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d("phase_voltage_l3", lambda x: scaled(x, 33075, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d("active_power", lambda x: s32(x, 33079, 33080), SensorDeviceClass.POWER, UnitOfPower.WATT),
+    d("temperature", lambda x: None if s16(x, 33093) is None else s16(x, 33093) / 10, SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS),
+    d("grid_frequency", lambda x: None if u16(x, 33094) is None else u16(x, 33094) / 100, SensorDeviceClass.FREQUENCY, UnitOfFrequency.HERTZ),
+    d("battery_voltage", lambda x: scaled(x, 33133, 0.1), SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT),
+    d(
+        "battery_current",
+        lambda x: ((-1 if u16(x, 33135) == 1 else 1) * u16(x, 33134) / 10) if u16(x, 33134) is not None else None,
+        SensorDeviceClass.CURRENT,
+        UnitOfElectricCurrent.AMPERE,
+    ),
+    d("battery_soc", lambda x: u16(x, 33139), SensorDeviceClass.BATTERY, PERCENTAGE),
+    d("house_load_power", lambda x: u16(x, 33147), SensorDeviceClass.POWER, UnitOfPower.WATT),
+    d(
+        "battery_power",
+        lambda x: ((-1 if u16(x, 33135) == 1 else 1) * u32(x, 33149, 33150)) if u32(x, 33149, 33150) is not None else None,
+        SensorDeviceClass.POWER,
+        UnitOfPower.WATT,
+    ),
+    d("grid_power", lambda x: s32(x, 33151, 33152), SensorDeviceClass.POWER, UnitOfPower.WATT),
 )
-async def async_setup_entry(hass,entry,async_add_entities):
-    co=entry.runtime_data; async_add_entities([RegisterSensor(co,entry,x) for x in S]+[MetricSensor(co,entry,'response_time'),MetricSensor(co,entry,'read_time'),MetricSensor(co,entry,'connect_time'),MetricSensor(co,entry,'average_poll_time'),MetricSensor(co,entry,'min_poll_time'),MetricSensor(co,entry,'max_poll_time'),MetricSensor(co,entry,'success_rate'),MetricSensor(co,entry,'failed_polls'),MetricSensor(co,entry,'total_retries'),MetricSensor(co,entry,'reconnect_count'),MetricSensor(co,entry,'disconnect_count'),MetricSensor(co,entry,'consecutive_failures'),MetricSensor(co,entry,'last_success'),MetricSensor(co,entry,'connected_since'),MetricSensor(co,entry,'connection_uptime'),MetricSensor(co,entry,'longest_connection'),MetricSensor(co,entry,'last_disconnect'),MetricSensor(co,entry,'last_reconnect'),MetricSensor(co,entry,'total_downtime'),MetricSensor(co,entry,'availability'),MetricSensor(co,entry,'health_score'),CountSensor(co,entry),ClockSensor(co,entry)])
-class Base(CoordinatorEntity,SensorEntity):
-    _attr_has_entity_name=True
-    def __init__(self,co,entry,desc):
-        super().__init__(co); self.entity_description=desc; self._attr_unique_id=f"{entry.entry_id}_{desc.key}"; self._attr_device_info=DeviceInfo(identifiers={(DOMAIN,entry.entry_id)},name=entry.title,manufacturer='Autarco',model='S2.LH-MII (Modbus TCP)')
+
+
+METRICS = {
+    "response_time": ("last_response_ms", "ms", None, True, SensorStateClass.MEASUREMENT),
+    "read_time": ("last_read_ms", "ms", None, False, SensorStateClass.MEASUREMENT),
+    "connect_time": ("last_connect_ms", "ms", None, False, SensorStateClass.MEASUREMENT),
+    "average_poll_time": ("average_poll_ms", "ms", None, False, SensorStateClass.MEASUREMENT),
+    "min_poll_time": ("min_poll_ms", "ms", None, False, SensorStateClass.MEASUREMENT),
+    "max_poll_time": ("max_poll_ms", "ms", None, False, SensorStateClass.MEASUREMENT),
+    "success_rate": ("success_rate", PERCENTAGE, None, True, SensorStateClass.MEASUREMENT),
+    "failed_polls": ("failed_polls", None, None, False, SensorStateClass.TOTAL_INCREASING),
+    "total_retries": ("total_retries", None, None, False, SensorStateClass.TOTAL_INCREASING),
+    "reconnect_count": ("reconnect_count", None, None, False, SensorStateClass.TOTAL_INCREASING),
+    "disconnect_count": ("disconnect_count", None, None, True, SensorStateClass.TOTAL_INCREASING),
+    "consecutive_failures": ("consecutive_failures", None, None, False, SensorStateClass.MEASUREMENT),
+    "last_success": ("last_success_at", None, SensorDeviceClass.TIMESTAMP, True, None),
+    "connected_since": ("connected_since", None, SensorDeviceClass.TIMESTAMP, True, None),
+    "connection_uptime": ("current_connection_uptime_seconds", UnitOfTime.SECONDS, SensorDeviceClass.DURATION, True, SensorStateClass.MEASUREMENT),
+    "longest_connection": ("longest_connection_seconds", UnitOfTime.SECONDS, SensorDeviceClass.DURATION, False, SensorStateClass.MEASUREMENT),
+    "last_disconnect": ("last_disconnect_at", None, SensorDeviceClass.TIMESTAMP, True, None),
+    "last_reconnect": ("last_reconnect_at", None, SensorDeviceClass.TIMESTAMP, True, None),
+    "total_downtime": ("total_downtime_seconds", UnitOfTime.SECONDS, SensorDeviceClass.DURATION, True, SensorStateClass.MEASUREMENT),
+    "availability": ("availability_percent", PERCENTAGE, None, True, SensorStateClass.MEASUREMENT),
+    "health_score": ("health_score", PERCENTAGE, None, False, SensorStateClass.MEASUREMENT),
+}
+
+
+async def async_setup_entry(hass, entry, async_add_entities):
+    coordinator = entry.runtime_data
+    async_add_entities(
+        [RegisterSensor(coordinator, entry, desc) for desc in SENSORS]
+        + [MetricSensor(coordinator, entry, key) for key in METRICS]
+        + [CountSensor(coordinator, entry), ClockSensor(coordinator, entry)]
+    )
+
+
+class Base(CoordinatorEntity, SensorEntity):
+    _attr_has_entity_name = True
+
+    def __init__(self, coordinator, entry, description):
+        super().__init__(coordinator)
+        self.entity_description = description
+        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Autarco",
+            model="S2.LH-MII (Modbus TCP)",
+        )
+
+
 class RegisterSensor(Base):
     @property
-    def native_value(self): return self.entity_description.value_fn(self.coordinator.data or {})
+    def native_value(self):
+        return self.entity_description.value_fn(self.coordinator.data or {})
+
+
 class MetricSensor(Base):
-    def __init__(self,co,entry,key):
-        m={'response_time':SensorEntityDescription(key='response_time',translation_key='response_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'read_time':SensorEntityDescription(key='read_time',translation_key='read_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'connect_time':SensorEntityDescription(key='connect_time',translation_key='connect_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'average_poll_time':SensorEntityDescription(key='average_poll_time',translation_key='average_poll_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'min_poll_time':SensorEntityDescription(key='min_poll_time',translation_key='min_poll_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'max_poll_time':SensorEntityDescription(key='max_poll_time',translation_key='max_poll_time',native_unit_of_measurement='ms',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'success_rate':SensorEntityDescription(key='success_rate',translation_key='success_rate',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),'failed_polls':SensorEntityDescription(key='failed_polls',translation_key='failed_polls',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'total_retries':SensorEntityDescription(key='total_retries',translation_key='total_retries',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'reconnect_count':SensorEntityDescription(key='reconnect_count',translation_key='reconnect_count',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'disconnect_count':SensorEntityDescription(key='disconnect_count',translation_key='disconnect_count',state_class=SensorStateClass.TOTAL_INCREASING,entity_category=EntityCategory.DIAGNOSTIC),
-'consecutive_failures':SensorEntityDescription(key='consecutive_failures',translation_key='consecutive_failures',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'last_success':SensorEntityDescription(key='last_success',translation_key='last_success',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC),
-'connected_since':SensorEntityDescription(key='connected_since',translation_key='connected_since',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC),
-'connection_uptime':SensorEntityDescription(key='connection_uptime',translation_key='connection_uptime',device_class=SensorDeviceClass.DURATION,native_unit_of_measurement=UnitOfTime.SECONDS,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),
-'longest_connection':SensorEntityDescription(key='longest_connection',translation_key='longest_connection',device_class=SensorDeviceClass.DURATION,native_unit_of_measurement=UnitOfTime.SECONDS,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False),
-'last_disconnect':SensorEntityDescription(key='last_disconnect',translation_key='last_disconnect',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC),
-'last_reconnect':SensorEntityDescription(key='last_reconnect',translation_key='last_reconnect',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC),
-'total_downtime':SensorEntityDescription(key='total_downtime',translation_key='total_downtime',device_class=SensorDeviceClass.DURATION,native_unit_of_measurement=UnitOfTime.SECONDS,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),
-'availability':SensorEntityDescription(key='availability',translation_key='availability',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC),
-'health_score':SensorEntityDescription(key='health_score',translation_key='health_score',native_unit_of_measurement=PERCENTAGE,state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False)}; super().__init__(co,entry,m[key])
+    def __init__(self, coordinator, entry, key):
+        source, unit, device_class, enabled, state_class = METRICS[key]
+        self._source_key = source
+        super().__init__(
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key=key,
+                translation_key=key,
+                native_unit_of_measurement=unit,
+                device_class=device_class,
+                state_class=state_class,
+                entity_category=EntityCategory.DIAGNOSTIC,
+                entity_registry_enabled_default=enabled,
+            ),
+        )
+
     @property
     def native_value(self):
-        h=self.coordinator.network_health; return {'response_time':h['last_response_ms'],'read_time':h['last_read_ms'],'connect_time':h['last_connect_ms'],'average_poll_time':h['average_poll_ms'],'min_poll_time':h['min_poll_ms'],'max_poll_time':h['max_poll_ms'],'success_rate':h['success_rate'],'failed_polls':h['failed_polls'],'total_retries':h['total_retries'],'reconnect_count':h['reconnect_count'],'disconnect_count':h['disconnect_count'],'consecutive_failures':h['consecutive_failures'],'last_success':h['last_success_at'],'connected_since':h['connected_since'],'connection_uptime':h['current_connection_uptime_seconds'],'longest_connection':h['longest_connection_seconds'],'last_disconnect':h['last_disconnect_at'],'last_reconnect':h['last_reconnect_at'],'total_downtime':h['total_downtime_seconds'],'availability':h['availability_percent'],'health_score':h['health_score']}[self.entity_description.key]
+        return self.coordinator.network_health[self._source_key]
+
+
 class CountSensor(Base):
-    def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='register_count',translation_key='register_count',state_class=SensorStateClass.MEASUREMENT,entity_category=EntityCategory.DIAGNOSTIC,entity_registry_enabled_default=False))
-    @property
-    def native_value(self): return len(self.coordinator.data or {})
-class ClockSensor(Base):
-    def __init__(self,co,entry): super().__init__(co,entry,SensorEntityDescription(key='device_time',translation_key='device_time',device_class=SensorDeviceClass.TIMESTAMP,entity_category=EntityCategory.DIAGNOSTIC))
+    def __init__(self, coordinator, entry):
+        super().__init__(
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="register_count",
+                translation_key="register_count",
+                state_class=SensorStateClass.MEASUREMENT,
+                entity_category=EntityCategory.DIAGNOSTIC,
+                entity_registry_enabled_default=False,
+            ),
+        )
+
     @property
     def native_value(self):
-        d=self.coordinator.data or {}
-        try: return datetime(2000+d[33022],d[33023],d[33024],d[33025],d[33026],d[33027],tzinfo=dt_util.DEFAULT_TIME_ZONE)
-        except (KeyError,ValueError,TypeError): return None
+        return len(self.coordinator.data or {})
+
+
+class ClockSensor(Base):
+    def __init__(self, coordinator, entry):
+        super().__init__(
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="device_time",
+                translation_key="device_time",
+                device_class=SensorDeviceClass.TIMESTAMP,
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ),
+        )
+
+    @property
+    def native_value(self):
+        data = self.coordinator.data or {}
+        try:
+            return datetime(
+                2000 + data[33022],
+                data[33023],
+                data[33024],
+                data[33025],
+                data[33026],
+                data[33027],
+                tzinfo=dt_util.DEFAULT_TIME_ZONE,
+            )
+        except (KeyError, ValueError, TypeError):
+            return None

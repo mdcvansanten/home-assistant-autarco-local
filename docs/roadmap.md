@@ -9,18 +9,27 @@
 - [x] Uptime/downtime en verbindingslogging (v0.3.4)
 - [x] Persistente verbindingshistorie na herstart (v0.3.5)
 - [ ] Meerdaagse praktijktest en vergelijking met netwerkmonitoring
-- [ ] Waarden opnieuw vergelijken met Dyness en Autarco
 
-**Exit-criterium:** stabiele communicatie, verklaarbare uitval en gevalideerde polariteit, schaalfactoren en beschikbaarheid.
+## Fase 2 — PV / zonnepanelenmonitoring (v0.4.x)
 
-## Fase 2 — Installer-instellingen uitlezen (v0.4.x)
+- [x] PV1/PV2 spanning en stroom lokaal uitlezen
+- [x] Vermogen per PV-ingang afleiden uit spanning × stroom
+- [x] PV-opbrengst vandaag, maand, jaar en totaal uitlezen
+- [x] PV-productiestatus toevoegen
+- [x] PV3/PV4 voorbereid en standaard uitgeschakeld
+- [ ] Waarden op echte Autarco-hardware vergelijken met Installer App/cloud
+- [ ] Fysieke strings/MPPT's documenteren
+- [ ] Pas daarna veilige afwijkingsdetectie per string ontwikkelen
+- [ ] Later: verwachte versus werkelijke opbrengst met weer/PV-forecast
+
+## Fase 3 — Installer-instellingen uitlezen (v0.5.x)
 
 - [ ] Opties uit de Autarco Installer App inventariseren
-- [ ] Bijbehorende Modbus-registers identificeren en documenteren
+- [ ] Bijbehorende Modbus holding registers identificeren en documenteren
 - [ ] Belangrijkste instellingen eerst read-only in Home Assistant aanbieden
 - [ ] Grenzen, schaalfactoren en enumeraties valideren
 
-## Fase 3 — Veilige schrijffuncties (v0.5.x en verder)
+## Fase 4 — Veilige schrijffuncties (v0.6.x en verder)
 
 - [ ] Alleen bewezen veilige instellingen schrijfbaar maken
 - [ ] Waarden vóór schrijven valideren
@@ -31,8 +40,9 @@
 ## v1.0 MVP
 
 - [ ] Stabiele lokale monitoring
+- [ ] Uitgebreide PV/MPPT-monitoring
 - [ ] Belangrijkste Installer App-instellingen herkenbaar uitlezen
 - [ ] Geselecteerde instellingen veilig lokaal wijzigen
 - [ ] Documentatie en installatie-instructies voor andere gebruikers
 
-Het gecombineerde Home Assistant-energiedashboard (Sessy P1 + Autarco + Dyness) is een apart project en geen afhankelijkheid van Autarco Local.
+Het gecombineerde Home Assistant-energiedashboard (Sessy P1 + Autarco + Dyness) blijft een apart project en geen afhankelijkheid van Autarco Local.
