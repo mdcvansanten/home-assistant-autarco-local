@@ -7,11 +7,11 @@ Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via M
 > [!WARNING]
 > Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
 
-## Versie 0.4.0 — PV / zonnepanelenmonitoring
+## Versie 0.4.2 — PV / zonnepanelenmonitoring
 
-v0.4.0 richt zich volledig op lokale monitoring van de PV-ingangen en opbrengst.
+v0.4.2 bevat de v0.4 PV/zonnepanelenmonitoring plus een packaging/translation-fix zodat Home Assistant en HACS de nieuwe entiteiten en versie correct herkennen.
 
-Nieuw in deze versie:
+Nieuw in de v0.4-serie:
 
 - berekend vermogen per PV-ingang/MPPT voor PV1 en PV2;
 - PV3/PV4 spanning, stroom en berekend vermogen aanwezig maar standaard uitgeschakeld;
@@ -23,6 +23,8 @@ Nieuw in deze versie:
 - geen nieuwe Modbus-registerblokken nodig: de gebruikte PV-registers vallen binnen het bestaande input-registerbereik;
 - geen write-functionaliteit.
 
+v0.4.2 corrigeert daarnaast de Engelse runtimevertalingen voor de nieuwe PV-entiteiten en verhoogt de manifestversie correct. De eerder gepubliceerde `v0.4.1`-tag rapporteerde intern nog versie `0.4.0`; gebruik daarom v0.4.2 of nieuwer.
+
 De vermogenssensoren per PV-ingang worden afgeleid uit lokale spanning × stroom. Ze zijn bedoeld als MPPT/string-monitoring en hoeven door afronding of omzettingsverliezen niet exact op te tellen tot het totale DC-PV-vermogen van de omvormer.
 
 Een automatische "gezond / defect"-beoordeling per string wordt bewust nog niet toegevoegd. Daarvoor moeten eerst de fysieke stringindeling, oriëntatie en normale productiepatronen bekend en gevalideerd zijn.
@@ -31,7 +33,7 @@ Zie [`docs/pv_monitoring.md`](docs/pv_monitoring.md) voor de registers en het te
 
 ## Installatie via HACS
 
-1. Maak/publish GitHub release `v0.4.0`.
+1. Gebruik de nieuwste gepubliceerde GitHub release (v0.4.2 of nieuwer).
 2. Werk **Autarco Local** bij via HACS.
 3. Herstart Home Assistant volledig.
 4. Open **Instellingen → Apparaten & diensten → Autarco Local**.
