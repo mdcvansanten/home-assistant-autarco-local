@@ -78,6 +78,16 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         )
         self.last_unsupported_blocks: tuple[str, ...] = ()
 
+        # Settings are deliberately kept separate from the stable 33xxx runtime
+        # snapshot. A failed holding-register read must never make normal
+        # monitoring unavailable.
+        self.settings_data: dict[int, int] = {}
+        self.settings_read_time_ms: float | None = None
+        self.settings_last_success_at = None
+        self.settings_last_failure_at = None
+        self.settings_last_error: str | None = None
+        self.settings_unsupported_blocks: tuple[str, ...] = ()
+
         settings = AutarcoConnectionSettings(
             str(entry.data[CONF_HOST]),
             int(entry.data.get(CONF_PORT, DEFAULT_PORT)),
@@ -162,7 +172,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         })
 
     async def _async_update_data(self) -> dict[int, int]:
-        """Fetch one complete register snapshot."""
+        """Fetch one complete runtime snapshot plus non-critical settings."""
         self.last_poll_at = dt_util.utcnow()
         was_failing = self.consecutive_failures > 0
 
@@ -235,6 +245,26 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.last_error = None
         self.last_unsupported_blocks = result.unsupported_blocks
 
+        # Settings read is best-effort. Never feed its failures into the normal
+        # connection failure counters or DataUpdateCoordinator availability.
+        try:
+            settings_result = await self.hass.async_add_executor_job(
+                self.client.read_settings
+            )
+        except AutarcoConnectionError as err:
+            self.settings_last_failure_at = dt_util.utcnow()
+            self.settings_last_error = str(err)
+            _LOGGER.debug(
+                "Autarco settings-read mislukt; runtime monitoring blijft beschikbaar: %s",
+                err,
+            )
+        else:
+            self.settings_data = settings_result.registers
+            self.settings_read_time_ms = settings_result.read_duration_ms
+            self.settings_unsupported_blocks = settings_result.unsupported_blocks
+            self.settings_last_success_at = dt_util.utcnow()
+            self.settings_last_error = None
+
         if not self._connection_established_once:
             self._connection_established_once = True
             self.connected_since = self.last_success_at
@@ -288,8 +318,9 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.consecutive_failures = 0
         return result.registers
 
-
-    def _record_connection_event(self, event: str, when, reason: str | None, downtime: float | None) -> None:
+    def _record_connection_event(
+        self, event: str, when, reason: str | None, downtime: float | None
+    ) -> None:
         self.connection_events.append({
             "event": event,
             "timestamp": when,
@@ -314,6 +345,20 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
     def connection_available(self) -> bool:
         """Return true while connection is healthy or only briefly degraded."""
         return self.consecutive_failures < FAILURE_THRESHOLD and self.data is not None
+
+    @property
+    def settings_available(self) -> bool:
+        """Return true when at least one requested setting register was read."""
+        return bool(self.settings_data)
+
+    @property
+    def settings_status(self) -> str:
+        """Return a compact settings-layer health state."""
+        if not self.settings_data:
+            return "unavailable"
+        if self.settings_last_error or self.settings_unsupported_blocks:
+            return "partial"
+        return "available"
 
     @property
     def network_health(self) -> dict[str, Any]:
@@ -352,12 +397,19 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "last_success_at": self.last_success_at,
             "last_failure_at": self.last_failure_at,
             "connected_since": self.connected_since,
-            "current_connection_uptime_seconds": round(self.current_connection_uptime_seconds, 1),
-            "longest_connection_seconds": round(max(self.longest_connection_seconds, self.current_connection_uptime_seconds), 1),
+            "current_connection_uptime_seconds": round(
+                self.current_connection_uptime_seconds, 1
+            ),
+            "longest_connection_seconds": round(
+                max(
+                    self.longest_connection_seconds,
+                    self.current_connection_uptime_seconds,
+                ),
+                1,
+            ),
             "last_disconnect_at": self.last_disconnect_at,
             "last_reconnect_at": self.last_reconnect_at,
             "last_disconnect_reason": self.last_disconnect_reason,
-            "outage_started_at": self.outage_started_at.isoformat() if self.outage_started_at else None,
             "outage_started_at": self.outage_started_at,
             "total_downtime_seconds": round(downtime, 1),
             "availability_percent": availability,
@@ -367,4 +419,12 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             "last_reconnect_reason": self.last_reconnect_reason,
             "connection_available": self.connection_available,
             "unsupported_blocks": self.last_unsupported_blocks,
+            "settings_status": self.settings_status,
+            "settings_available": self.settings_available,
+            "settings_register_count": len(self.settings_data),
+            "settings_read_time_ms": self.settings_read_time_ms,
+            "settings_last_success_at": self.settings_last_success_at,
+            "settings_last_failure_at": self.settings_last_failure_at,
+            "settings_last_error": self.settings_last_error,
+            "unsupported_setting_blocks": self.settings_unsupported_blocks,
         }
