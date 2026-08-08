@@ -13,6 +13,7 @@ from .const import (
     REGISTER_CHUNK_SIZE,
     REGISTER_END,
     REGISTER_START,
+    SETTING_REGISTER_BLOCKS,
     VALIDATION_REGISTER_COUNT,
     VALIDATION_REGISTER_START,
 )
@@ -37,7 +38,7 @@ class AutarcoConnectionSettings:
 
 @dataclass(slots=True, frozen=True)
 class AutarcoReadResult:
-    """Result of one complete register poll."""
+    """Result of one complete runtime/input-register poll."""
 
     registers: dict[int, int]
     poll_duration_ms: float
@@ -47,6 +48,15 @@ class AutarcoReadResult:
     unsupported_blocks: tuple[str, ...]
     reconnects: int
     reconnect_reason: str | None
+
+
+@dataclass(slots=True, frozen=True)
+class AutarcoSettingsReadResult:
+    """Result of one non-critical read-only settings poll."""
+
+    registers: dict[int, int]
+    read_duration_ms: float
+    unsupported_blocks: tuple[str, ...]
 
 
 class AutarcoModbusClient:
@@ -80,7 +90,9 @@ class AutarcoModbusClient:
         with self._lock:
             self._disconnect_locked()
 
-    def _ensure_connected_locked(self, reason: str | None = None) -> tuple[float, bool, str | None]:
+    def _ensure_connected_locked(
+        self, reason: str | None = None
+    ) -> tuple[float, bool, str | None]:
         """Ensure a usable TCP connection.
 
         Returns connect duration, whether this was a reconnect (not the first
@@ -131,7 +143,7 @@ class AutarcoModbusClient:
                 temporary.close()
 
     def read_all(self) -> AutarcoReadResult:
-        """Read all known registers, retrying through clean TCP reconnects."""
+        """Read all known runtime registers, retrying through clean reconnects."""
         with self._lock:
             poll_started = time.monotonic()
             last_error: AutarcoConnectionError | None = None
@@ -183,8 +195,67 @@ class AutarcoModbusClient:
                 str(last_error) if last_error else "Onbekende communicatiefout"
             )
 
+    def read_settings(self) -> AutarcoSettingsReadResult:
+        """Read selected holding registers without ever writing to the inverter.
+
+        This is intentionally separate from :meth:`read_all`. The coordinator
+        treats failure of this layer as non-critical so the existing monitoring
+        remains available even when a firmware/logger does not expose one or
+        more holding-register blocks.
+        """
+        with self._lock:
+            self._ensure_connected_locked("socket was niet verbonden vóór settings-read")
+            client = self._client
+            if client is None or not client.connected:
+                raise AutarcoConnectionError("Modbus-socket is niet verbonden")
+
+            started = time.monotonic()
+            registers: dict[int, int] = {}
+            unsupported: list[str] = []
+
+            for start, count in SETTING_REGISTER_BLOCKS:
+                end = start + count - 1
+                try:
+                    result = client.read_holding_registers(
+                        start,
+                        count=count,
+                        device_id=self._settings.device_id,
+                    )
+                except (ModbusException, OSError, TimeoutError) as err:
+                    self._disconnect_locked()
+                    raise AutarcoConnectionError(
+                        f"Settings-leesfout {start}-{end}: {type(err).__name__}: {err}"
+                    ) from err
+
+                if result.isError():
+                    unsupported.append(f"{start}-{end}")
+                    _LOGGER.debug(
+                        "Holding-registerblok %s-%s niet ondersteund: %s",
+                        start,
+                        end,
+                        result,
+                    )
+                    continue
+
+                values = getattr(result, "registers", None) or []
+                if not values:
+                    unsupported.append(f"{start}-{end}")
+                    _LOGGER.debug(
+                        "Leeg antwoord voor holding-registerblok %s-%s", start, end
+                    )
+                    continue
+
+                for offset, value in enumerate(values[:count]):
+                    registers[start + offset] = int(value)
+
+            return AutarcoSettingsReadResult(
+                registers=registers,
+                read_duration_ms=round((time.monotonic() - started) * 1000, 1),
+                unsupported_blocks=tuple(unsupported),
+            )
+
     def _read_once_locked(self) -> tuple[dict[int, int], list[str]]:
-        """Read one snapshot over the existing connection."""
+        """Read one runtime snapshot over the existing connection."""
         client = self._client
         if client is None or not client.connected:
             raise AutarcoConnectionError("Modbus-socket is niet verbonden")

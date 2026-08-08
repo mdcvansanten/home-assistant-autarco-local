@@ -27,6 +27,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
+from .settings import SETTINGS, SettingDesc, WRITE_POLICY_READ_ONLY
 
 
 def u16(data, address):
@@ -162,8 +163,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
     coordinator = entry.runtime_data
     async_add_entities(
         [RegisterSensor(coordinator, entry, desc) for desc in SENSORS]
+        + [SettingSensor(coordinator, entry, desc) for desc in SETTINGS]
         + [MetricSensor(coordinator, entry, key) for key in METRICS]
-        + [CountSensor(coordinator, entry), ClockSensor(coordinator, entry)]
+        + [
+            CountSensor(coordinator, entry),
+            ClockSensor(coordinator, entry),
+            SettingsStatusSensor(coordinator, entry),
+        ]
     )
 
 
@@ -186,6 +192,38 @@ class RegisterSensor(Base):
     @property
     def native_value(self):
         return self.entity_description.value_fn(self.coordinator.data or {})
+
+
+class SettingSensor(Base):
+    """Expose one inverter setting as a strictly read-only sensor."""
+
+    entity_description: SettingDesc
+
+    @property
+    def available(self):
+        data = self.coordinator.settings_data
+        return (
+            super().available
+            and self.coordinator.settings_last_error is None
+            and all(register in data for register in self.entity_description.registers)
+        )
+
+    @property
+    def native_value(self):
+        return self.entity_description.value_fn(self.coordinator.settings_data)
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "access_level": self.entity_description.access_level,
+            "write_policy": WRITE_POLICY_READ_ONLY,
+            "register_type": "holding",
+            "registers": list(self.entity_description.registers),
+            "raw_values": {
+                str(register): self.coordinator.settings_data.get(register)
+                for register in self.entity_description.registers
+            },
+        }
 
 
 class MetricSensor(Base):
@@ -258,3 +296,34 @@ class ClockSensor(Base):
             )
         except (KeyError, ValueError, TypeError):
             return None
+
+
+class SettingsStatusSensor(Base):
+    """Expose health/details of the non-critical holding-register layer."""
+
+    def __init__(self, coordinator, entry):
+        super().__init__(
+            coordinator,
+            entry,
+            SensorEntityDescription(
+                key="settings_status",
+                translation_key="settings_status",
+                entity_category=EntityCategory.DIAGNOSTIC,
+            ),
+        )
+
+    @property
+    def native_value(self):
+        return self.coordinator.settings_status
+
+    @property
+    def extra_state_attributes(self):
+        health = self.coordinator.network_health
+        return {
+            "register_count": health["settings_register_count"],
+            "read_time_ms": health["settings_read_time_ms"],
+            "last_success": health["settings_last_success_at"],
+            "last_failure": health["settings_last_failure_at"],
+            "last_error": health["settings_last_error"],
+            "unsupported_blocks": list(health["unsupported_setting_blocks"]),
+        }
