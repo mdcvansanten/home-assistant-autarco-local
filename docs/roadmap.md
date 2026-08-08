@@ -24,14 +24,22 @@
 
 ## Fase 3 — Installer-instellingen uitlezen (v0.5.x)
 
-- [ ] Opties uit de Autarco Installer App inventariseren
-- [ ] Bijbehorende Modbus holding registers identificeren en documenteren
-- [ ] Belangrijkste instellingen eerst read-only in Home Assistant aanbieden
-- [ ] Grenzen, schaalfactoren en enumeraties valideren
+- [x] Eerste set Installer App-opties geïnventariseerd
+- [x] Eerste holding-registerblokken geïdentificeerd en gedocumenteerd
+- [x] Belangrijkste instellingen read-only in Home Assistant aangeboden
+- [x] Instellingen ingedeeld in standaard-, expert- en installer-niveau
+- [x] Settings-polling geïsoleerd van de bestaande runtime-monitoring
+- [ ] Waarden, grenzen, schaalfactoren en enumeraties op echte Autarco-hardware valideren
+- [ ] Battery Select / accutype-register exact identificeren voordat dit wordt toegevoegd
+- [ ] Aanvullende Installer App-instellingen inventariseren en per register valideren
+
+Zie [`settings.md`](settings.md) voor de huidige registermapping en het testplan.
 
 ## Fase 4 — Veilige schrijffuncties (v0.6.x en verder)
 
-- [ ] Alleen bewezen veilige instellingen schrijfbaar maken
+- [ ] Alleen bewezen veilige standaardinstellingen schrijfbaar maken
+- [ ] Expert-instellingen alleen via Expert Mode met waarschuwing en bevestiging aanbieden
+- [ ] Installer- en systeeminstellingen read-only houden
 - [ ] Waarden vóór schrijven valideren
 - [ ] Na schrijven opnieuw uitlezen en resultaat bevestigen
 - [ ] Oude en nieuwe waarde loggen
