@@ -29,14 +29,16 @@ VALIDATION_REGISTER_START: Final = 33000
 VALIDATION_REGISTER_COUNT: Final = 10
 
 # Read-only holding-register blocks used by the v0.5 settings layer.
-# Blocks are deliberately narrow so an unsupported setting family cannot affect
-# the stable 33xxx monitoring poll. No Modbus write functions are implemented.
+# Blocks are deliberately narrow so reserved/unsupported addresses cannot make
+# unrelated settings unavailable. No Modbus write functions are implemented.
 SETTING_REGISTER_BLOCKS: Final = (
     (43010, 2),   # overcharge / overdischarge SOC
     (43018, 1),   # force-charge SOC
-    (43024, 5),   # reserve SOC / force-charge power limit (+ adjacent values)
+    (43024, 1),   # reserve / backup SOC
+    (43027, 1),   # force-charge power limit
     (43110, 1),   # storage-mode bit field
-    (43137, 14),  # off-grid SOC, charge/discharge current and time slot 1
+    (43137, 1),   # off-grid minimum / overdischarge SOC
+    (43141, 10),  # scheduled charge/discharge current + time slot 1
     (43153, 8),   # time slot 2
     (43163, 8),   # time slot 3
 )
