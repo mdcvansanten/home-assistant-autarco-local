@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.0
+
+- Added a separate read-only Modbus holding-register layer for inverter settings.
+- Settings reads are deliberately non-critical: unsupported or failed setting reads do not make the existing PV, battery or connection monitoring unavailable.
+- Added read-only Home Assistant configuration sensors for battery SOC limits, storage-mode flags, grid charging, off-grid mode, off-grid minimum SOC, scheduled charge/discharge current and three charge/discharge time slots.
+- Added future access-level metadata and visual classification: 🟢 standard user, 🟡 expert user and 🔴 installer/read-only.
+- Every setting entity exposes its holding-register address, raw value, access level and `read_only` write policy as attributes.
+- Added a settings-read diagnostic sensor reporting available/partial/unavailable state, read duration, unsupported blocks and last error.
+- Battery Select is intentionally not exposed yet because its exact register mapping has not been validated for the supported Autarco/Solis generation.
+- Fixed duplicate `outage_started_at` output in connection diagnostics.
+- No Modbus write functions are implemented in this release.
+
 ## 0.4.2
 
 - Corrected English runtime translations for the new v0.4 PV entities so Home Assistant shows descriptive entity names instead of generic `Power`, `Current`, `Voltage` and `Energy` labels.
