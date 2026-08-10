@@ -40,6 +40,7 @@ from .settings import (
     ACCESS_EXPERT,
     ACCESS_INSTALLER,
     ACCESS_STANDARD,
+    AUTARCO_LH_MII_MANUAL_URL,
     PHYSICAL_WRITES_ENABLED,
     SETTINGS,
     UNMAPPED_INSTALLER_SETTINGS,
@@ -130,16 +131,12 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         """Create the Autarco Local Settings Center flow."""
         return AutarcoLocalOptionsFlow()
 
-    async def async_step_user(
-        self,
-        user_input: dict[str, Any] | None = None,
-    ) -> ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             data = _normalize_input(user_input)
-
             await self.async_set_unique_id(f"{data[CONF_HOST]}:{data[CONF_PORT]}")
             self._abort_if_unique_id_configured()
 
@@ -159,11 +156,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(title=data[CONF_NAME], data=data)
 
-        return self.async_show_form(
-            step_id="user",
-            data_schema=_get_schema(user_input),
-            errors=errors,
-        )
+        return self.async_show_form(step_id="user", data_schema=_get_schema(user_input), errors=errors)
 
     async def async_step_reconfigure(
         self,
@@ -179,9 +172,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             try:
                 await _validate_input(self.hass, data)
             except AutarcoConnectionError as err:
-                _LOGGER.warning(
-                    "Kan Autarco tijdens herconfiguratie niet bereiken: %s", err
-                )
+                _LOGGER.warning("Kan Autarco tijdens herconfiguratie niet bereiken: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Onverwachte fout tijdens Autarco-herconfiguratie")
@@ -195,9 +186,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_get_schema(
-                user_input if user_input is not None else dict(entry.data)
-            ),
+            data_schema=_get_schema(user_input if user_input is not None else dict(entry.data)),
             errors=errors,
         )
 
@@ -225,23 +214,14 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         for description in SETTINGS:
             if description.access_level != access_level:
                 continue
-            fields[
-                vol.Optional(description.key, default=self._format_setting(description))
-            ] = self._readonly_text()
+            fields[vol.Optional(description.key, default=self._format_setting(description))] = self._readonly_text()
         return vol.Schema(fields)
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Show the Settings Center menu."""
         return self.async_show_menu(
             step_id="init",
-            menu_options=[
-                "standard_settings",
-                "expert_settings",
-                "installer_settings",
-                "safety_rules",
-            ],
+            menu_options=["standard_settings", "expert_settings", "installer_settings", "safety_rules"],
         )
 
     async def async_step_standard_settings(
@@ -255,6 +235,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             data_schema=self._schema_for_access_level(ACCESS_STANDARD),
             description_placeholders={
                 "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
+                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
             },
         )
 
@@ -269,6 +250,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             data_schema=self._schema_for_access_level(ACCESS_EXPERT),
             description_placeholders={
                 "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
+                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
             },
         )
 
@@ -283,10 +265,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         for key in UNMAPPED_INSTALLER_SETTINGS:
             schema[vol.Optional(key, default="Not mapped yet — read-only")] = self._readonly_text()
 
-        return self.async_show_form(
-            step_id="installer_settings",
-            data_schema=vol.Schema(schema),
-        )
+        return self.async_show_form(step_id="installer_settings", data_schema=vol.Schema(schema))
 
     async def async_step_safety_rules(
         self, user_input: dict[str, Any] | None = None
