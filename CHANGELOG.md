@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.5.1
+
+- Added a dedicated Home Assistant **Settings Center** through the integration Configure/Options flow.
+- Settings are grouped into 🟢 standard, 🟡 expert and 🔴 installer/system sections.
+- Known installer/system settings remain visible even when their register mapping is not yet validated; they are shown as intentionally unmapped/read-only instead of guessing addresses.
+- Added concise per-setting explanations and an official Autarco LH-MII documentation link in the standard and expert sections.
+- Added planned write-policy metadata (`allowed`, `confirm`, `read_only`) for the later controlled-write phase.
+- Added a backend safety invariant: **Reserve SOC must never be lower than Minimum battery SOC**.
+- Added a Safety Rules page showing the current Reserve SOC, Minimum battery SOC, relationship status and physical-write status.
+- Physical Modbus writes remain locked in v0.5.1 (`PHYSICAL_WRITES_ENABLED = False`) pending installer review and write-register validation.
+- Added Dutch Settings Center translations.
+
 ## 0.5.0
 
 - Added a separate read-only Modbus holding-register layer for inverter settings.
