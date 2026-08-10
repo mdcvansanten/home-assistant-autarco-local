@@ -57,7 +57,7 @@
       },
       "standard_settings": {
         "title": "🟢 Standard settings",
-        "description": "Current live values. Physical writes are currently **{write_status}**. [Autarco LH-MII documentation](https://www.autarco.com/fileadmin/user_upload/downloads/Inverters/Hybrid_Inverters/LH-MII/IM-S2.LH-MII-EN-V1.4.pdf)",
+        "description": "Current live values. Physical writes are currently **{write_status}**. [Autarco LH-MII documentation]({docs_url})",
         "data": {
           "setting_reserve_soc": "Reserve SOC",
           "setting_self_use_mode": "Self-use mode",
@@ -78,7 +78,7 @@
           "setting_discharge_end_3": "Discharge slot 3 end"
         },
         "data_description": {
-          "setting_reserve_soc": "Battery reserve target. Future writes will always enforce Reserve SOC ≥ Minimum battery SOC. See the Autarco LH-MII battery/storage settings documentation.",
+          "setting_reserve_soc": "Battery reserve target. Future writes will always enforce Reserve SOC ≥ Minimum battery SOC.",
           "setting_self_use_mode": "Uses PV first for the home and battery before exporting surplus energy.",
           "setting_time_of_use_mode": "Enables scheduled charge/discharge behavior using the configured time slots.",
           "setting_reserve_battery_mode": "Enables use of the configured Reserve SOC as a battery reserve behavior.",
@@ -99,7 +99,7 @@
       },
       "expert_settings": {
         "title": "🟡 Expert settings",
-        "description": "Advanced settings. Physical writes are currently **{write_status}**. These settings will require validation, warning and confirmation before v0.6 enables selected writes. [Autarco LH-MII documentation](https://www.autarco.com/fileadmin/user_upload/downloads/Inverters/Hybrid_Inverters/LH-MII/IM-S2.LH-MII-EN-V1.4.pdf)",
+        "description": "Advanced settings. Physical writes are currently **{write_status}**. These settings will require validation, warning and confirmation before v0.6 enables selected writes. [Autarco LH-MII documentation]({docs_url})",
         "data": {
           "setting_overdischarge_soc": "Minimum battery SOC",
           "setting_force_charge_soc": "Force-charge SOC",
