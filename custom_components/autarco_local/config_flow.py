@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
+from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
 from .const import (
@@ -82,17 +83,33 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
 
     return vol.Schema(
         {
-            vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): selector.TextSelector(),
-            vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): selector.TextSelector(
-                selector.TextSelectorConfig(type="text")
-            ),
-            vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=65535, mode=selector.NumberSelectorMode.BOX)
+            vol.Required(
+                CONF_NAME,
+                default=defaults.get(CONF_NAME, DEFAULT_NAME),
+            ): selector.TextSelector(),
+            vol.Required(
+                CONF_HOST,
+                default=defaults.get(CONF_HOST, ""),
+            ): selector.TextSelector(selector.TextSelectorConfig(type="text")),
+            vol.Required(
+                CONF_PORT,
+                default=defaults.get(CONF_PORT, DEFAULT_PORT),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=65535,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
             vol.Required(
-                CONF_DEVICE_ID, default=defaults.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID)
+                CONF_DEVICE_ID,
+                default=defaults.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=247, mode=selector.NumberSelectorMode.BOX)
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=247,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
             vol.Required(
                 CONF_SCAN_INTERVAL,
@@ -105,7 +122,10 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     unit_of_measurement="s",
                 )
             ),
-            vol.Required(CONF_TIMEOUT, default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): selector.NumberSelector(
+            vol.Required(
+                CONF_TIMEOUT,
+                default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=MIN_TIMEOUT,
                     max=MAX_TIMEOUT,
@@ -113,8 +133,15 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     unit_of_measurement="s",
                 )
             ),
-            vol.Required(CONF_RETRIES, default=defaults.get(CONF_RETRIES, DEFAULT_RETRIES)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=MIN_RETRIES, max=MAX_RETRIES, mode=selector.NumberSelectorMode.BOX)
+            vol.Required(
+                CONF_RETRIES,
+                default=defaults.get(CONF_RETRIES, DEFAULT_RETRIES),
+            ): selector.NumberSelector(
+                selector.NumberSelectorConfig(
+                    min=MIN_RETRIES,
+                    max=MAX_RETRIES,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
         }
     )
@@ -131,7 +158,10 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         """Create the Autarco Local Settings Center flow."""
         return AutarcoLocalOptionsFlow()
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_user(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -156,7 +186,11 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_create_entry(title=data[CONF_NAME], data=data)
 
-        return self.async_show_form(step_id="user", data_schema=_get_schema(user_input), errors=errors)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=_get_schema(user_input),
+            errors=errors,
+        )
 
     async def async_step_reconfigure(
         self,
@@ -172,7 +206,10 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
             try:
                 await _validate_input(self.hass, data)
             except AutarcoConnectionError as err:
-                _LOGGER.warning("Kan Autarco tijdens herconfiguratie niet bereiken: %s", err)
+                _LOGGER.warning(
+                    "Kan Autarco tijdens herconfiguratie niet bereiken: %s",
+                    err,
+                )
                 errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Onverwachte fout tijdens Autarco-herconfiguratie")
@@ -186,13 +223,15 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_get_schema(user_input if user_input is not None else dict(entry.data)),
+            data_schema=_get_schema(
+                user_input if user_input is not None else dict(entry.data)
+            ),
             errors=errors,
         )
 
 
 class AutarcoLocalOptionsFlow(OptionsFlow):
-    """Provide a Settings Center for live inverter settings."""
+    """Provide a compact Settings Center for live inverter settings."""
 
     def _settings_data(self) -> dict[int, int]:
         coordinator = getattr(self.config_entry, "runtime_data", None)
@@ -214,89 +253,77 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         for description in SETTINGS:
             if description.access_level != access_level:
                 continue
-            fields[vol.Optional(description.key, default=self._format_setting(description))] = self._readonly_text()
+            fields[
+                vol.Optional(
+                    description.key,
+                    default=self._format_setting(description),
+                )
+            ] = self._readonly_text()
         return vol.Schema(fields)
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Show the Settings Center menu."""
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=["standard_settings", "expert_settings", "installer_settings", "safety_rules"],
-        )
-
-    async def async_step_standard_settings(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Show standard-user settings."""
-        if user_input is not None:
-            return await self.async_step_init()
-        return self.async_show_form(
-            step_id="standard_settings",
-            data_schema=self._schema_for_access_level(ACCESS_STANDARD),
-            description_placeholders={
-                "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
-                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
-            },
-        )
-
-    async def async_step_expert_settings(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Show expert settings."""
-        if user_input is not None:
-            return await self.async_step_init()
-        return self.async_show_form(
-            step_id="expert_settings",
-            data_schema=self._schema_for_access_level(ACCESS_EXPERT),
-            description_placeholders={
-                "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
-                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
-            },
-        )
-
-    async def async_step_installer_settings(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Show installer/system settings, including unmapped items."""
-        if user_input is not None:
-            return await self.async_step_init()
-
-        schema = dict(self._schema_for_access_level(ACCESS_INSTALLER).schema)
+    def _installer_schema(self) -> vol.Schema:
+        fields = dict(self._schema_for_access_level(ACCESS_INSTALLER).schema)
         for key in UNMAPPED_INSTALLER_SETTINGS:
-            schema[vol.Optional(key, default="Not mapped yet — read-only")] = self._readonly_text()
+            fields[
+                vol.Optional(key, default="Not mapped yet — read-only")
+            ] = self._readonly_text()
+        return vol.Schema(fields)
 
-        return self.async_show_form(step_id="installer_settings", data_schema=vol.Schema(schema))
-
-    async def async_step_safety_rules(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Show settings safety rules and current SOC relationship."""
-        if user_input is not None:
-            return await self.async_step_init()
-
+    def _safety_schema(self) -> vol.Schema:
         data = self._settings_data()
         reserve_soc = data.get(43024)
         minimum_soc = data.get(43011)
-        relationship = "Unavailable"
+        force_charge_soc = data.get(43018)
+
+        reserve_relationship = "Unavailable"
         if reserve_soc is not None and minimum_soc is not None:
             try:
                 validate_soc_relationship(reserve_soc, minimum_soc)
             except SettingValidationError:
-                relationship = "INVALID — Reserve SOC is below Minimum battery SOC"
+                reserve_relationship = (
+                    "INVALID — Reserve SOC is below Minimum battery SOC"
+                )
             else:
-                relationship = f"OK — {reserve_soc}% >= {minimum_soc}%"
+                reserve_relationship = f"OK — {reserve_soc}% >= {minimum_soc}%"
 
-        schema = vol.Schema(
+        force_relationship = "Unavailable"
+        if force_charge_soc is not None and minimum_soc is not None:
+            force_relationship = (
+                f"{force_charge_soc}% < {minimum_soc}%"
+                if force_charge_soc < minimum_soc
+                else f"CHECK — {force_charge_soc}% >= {minimum_soc}%"
+            )
+
+        return vol.Schema(
             {
                 vol.Optional(
                     "safety_reserve_soc",
-                    default=f"{reserve_soc}%" if reserve_soc is not None else "Unavailable",
+                    default=(
+                        f"{reserve_soc}%" if reserve_soc is not None else "Unavailable"
+                    ),
                 ): self._readonly_text(),
                 vol.Optional(
                     "safety_minimum_soc",
-                    default=f"{minimum_soc}%" if minimum_soc is not None else "Unavailable",
+                    default=(
+                        f"{minimum_soc}%" if minimum_soc is not None else "Unavailable"
+                    ),
                 ): self._readonly_text(),
-                vol.Optional("safety_soc_relationship", default=relationship): self._readonly_text(),
+                vol.Optional(
+                    "safety_force_charge_soc",
+                    default=(
+                        f"{force_charge_soc}%"
+                        if force_charge_soc is not None
+                        else "Unavailable"
+                    ),
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_soc_relationship",
+                    default=reserve_relationship,
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_force_relationship",
+                    default=force_relationship,
+                ): self._readonly_text(),
                 vol.Optional(
                     "safety_write_status",
                     default=(
@@ -307,4 +334,43 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 ): self._readonly_text(),
             }
         )
-        return self.async_show_form(step_id="safety_rules", data_schema=schema)
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> ConfigFlowResult:
+        """Show all settings on one page in collapsible sections."""
+        if user_input is not None:
+            # v0.5.2 is still a read-only preview. Do not persist the live
+            # values that the frontend sends back from the read-only fields.
+            return self.async_create_entry(data={})
+
+        data_schema = vol.Schema(
+            {
+                vol.Required("standard_settings"): section(
+                    self._schema_for_access_level(ACCESS_STANDARD),
+                    {"collapsed": False},
+                ),
+                vol.Required("expert_settings"): section(
+                    self._schema_for_access_level(ACCESS_EXPERT),
+                    {"collapsed": True},
+                ),
+                vol.Required("installer_settings"): section(
+                    self._installer_schema(),
+                    {"collapsed": True},
+                ),
+                vol.Required("safety_rules"): section(
+                    self._safety_schema(),
+                    {"collapsed": False},
+                ),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=data_schema,
+            description_placeholders={
+                "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
+                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
+            },
+        )
