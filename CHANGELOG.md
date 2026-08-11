@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.2
+
+- Replaced the four-page Settings Center menu with one mobile-friendly form using native Home Assistant collapsible sections.
+- 🟢 Standard settings and 🛡️ Safety rules open by default; 🟡 Expert and 🔴 Installer/system settings are collapsed by default.
+- Added Force-charge SOC to the Safety Rules overview so Reserve SOC, Minimum battery SOC and Force-charge SOC can be compared in one place.
+- Kept the existing backend invariant **Reserve SOC >= Minimum battery SOC** unchanged.
+- The Force-charge/minimum relationship is displayed for review only and is not yet enforced as a write rule.
+- Physical Modbus writes remain locked (`PHYSICAL_WRITES_ENABLED = False`).
+- No register mapping, runtime polling or inverter write behaviour changed in this release.
+
 ## 0.5.1
 
 - Added a dedicated Home Assistant **Settings Center** through the integration Configure/Options flow.
@@ -28,7 +38,7 @@
 
 - Corrected English runtime translations for the new v0.4 PV entities so Home Assistant shows descriptive entity names instead of generic `Power`, `Current`, `Voltage` and `Energy` labels.
 - Corrected the integration manifest version to `0.4.2` so HACS can identify the release properly.
-- Supersedes the accidentally published `v0.4.1` tag whose manifest still reported version `0.4.0`.
+- Supersedes the accidentally published `v0.4.1` tag whose manifest still reported version `0.4.0`; use v0.4.2 instead.
 - No Modbus register, polling, retry or write-behaviour changes.
 
 ## 0.4.1
