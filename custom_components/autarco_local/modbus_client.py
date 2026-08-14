@@ -1,4 +1,4 @@
-"""Thread-safe, read-only Modbus TCP client for Autarco Local."""
+"""Thread-safe Modbus TCP client for Autarco Local."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +19,10 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+OFF_GRID_MINIMUM_SOC_REGISTER = 43137
+OFF_GRID_MINIMUM_SOC_PILOT_FROM = 10
+OFF_GRID_MINIMUM_SOC_PILOT_TO = 20
 
 
 class AutarcoConnectionError(Exception):
@@ -52,11 +56,22 @@ class AutarcoReadResult:
 
 @dataclass(slots=True, frozen=True)
 class AutarcoSettingsReadResult:
-    """Result of one non-critical read-only settings poll."""
+    """Result of one non-critical settings poll."""
 
     registers: dict[int, int]
     read_duration_ms: float
     unsupported_blocks: tuple[str, ...]
+
+
+@dataclass(slots=True, frozen=True)
+class AutarcoWriteResult:
+    """Verified result of the deliberately narrow v0.6.0 write pilot."""
+
+    register: int
+    previous_value: int
+    requested_value: int
+    verified_value: int
+    duration_ms: float
 
 
 class AutarcoModbusClient:
@@ -196,13 +211,7 @@ class AutarcoModbusClient:
             )
 
     def read_settings(self) -> AutarcoSettingsReadResult:
-        """Read selected holding registers without ever writing to the inverter.
-
-        This is intentionally separate from :meth:`read_all`. The coordinator
-        treats failure of this layer as non-critical so the existing monitoring
-        remains available even when a firmware/logger does not expose one or
-        more holding-register blocks.
-        """
+        """Read selected holding registers without writing to the inverter."""
         with self._lock:
             self._ensure_connected_locked("socket was niet verbonden vóór settings-read")
             client = self._client
@@ -252,6 +261,113 @@ class AutarcoModbusClient:
                 registers=registers,
                 read_duration_ms=round((time.monotonic() - started) * 1000, 1),
                 unsupported_blocks=tuple(unsupported),
+            )
+
+    def write_off_grid_minimum_soc_pilot(self, requested_value: int) -> AutarcoWriteResult:
+        """Perform the single guarded v0.6.0 write pilot.
+
+        Safety guardrails are deliberately hard-coded for the first hardware
+        validation: only holding register 43137, only a transition from the
+        verified current value 10 to 20, and mandatory read-back verification.
+        No other register or value can be written through this method.
+        """
+        if int(requested_value) != OFF_GRID_MINIMUM_SOC_PILOT_TO:
+            raise AutarcoConnectionError(
+                "Write pilot staat alleen Off-grid minimum SOC 10% -> 20% toe"
+            )
+
+        with self._lock:
+            self._ensure_connected_locked("socket was niet verbonden vóór settings-write")
+            client = self._client
+            if client is None or not client.connected:
+                raise AutarcoConnectionError("Modbus-socket is niet verbonden")
+
+            started = time.monotonic()
+            try:
+                before = client.read_holding_registers(
+                    OFF_GRID_MINIMUM_SOC_REGISTER,
+                    count=1,
+                    device_id=self._settings.device_id,
+                )
+            except (ModbusException, OSError, TimeoutError) as err:
+                self._disconnect_locked()
+                raise AutarcoConnectionError(
+                    f"Pre-write read mislukt: {type(err).__name__}: {err}"
+                ) from err
+
+            if before.isError():
+                raise AutarcoConnectionError(f"Pre-write Modbus-fout: {before}")
+            before_values = getattr(before, "registers", None) or []
+            if not before_values:
+                raise AutarcoConnectionError("Pre-write read gaf geen registerwaarde")
+            previous_value = int(before_values[0])
+            if previous_value != OFF_GRID_MINIMUM_SOC_PILOT_FROM:
+                raise AutarcoConnectionError(
+                    "Write afgebroken: Off-grid minimum SOC is niet meer 10% "
+                    f"maar {previous_value}%"
+                )
+
+            try:
+                write_result = client.write_register(
+                    OFF_GRID_MINIMUM_SOC_REGISTER,
+                    OFF_GRID_MINIMUM_SOC_PILOT_TO,
+                    device_id=self._settings.device_id,
+                )
+            except (ModbusException, OSError, TimeoutError) as err:
+                self._disconnect_locked()
+                raise AutarcoConnectionError(
+                    f"Settings-write mislukt: {type(err).__name__}: {err}"
+                ) from err
+
+            if write_result.isError():
+                raise AutarcoConnectionError(f"Modbus-write geweigerd: {write_result}")
+
+            verified_value: int | None = None
+            last_read_error: str | None = None
+            for _attempt in range(5):
+                time.sleep(0.4)
+                try:
+                    verify = client.read_holding_registers(
+                        OFF_GRID_MINIMUM_SOC_REGISTER,
+                        count=1,
+                        device_id=self._settings.device_id,
+                    )
+                except (ModbusException, OSError, TimeoutError) as err:
+                    last_read_error = f"{type(err).__name__}: {err}"
+                    continue
+                if verify.isError():
+                    last_read_error = str(verify)
+                    continue
+                values = getattr(verify, "registers", None) or []
+                if not values:
+                    last_read_error = "leeg read-back antwoord"
+                    continue
+                verified_value = int(values[0])
+                if verified_value == OFF_GRID_MINIMUM_SOC_PILOT_TO:
+                    break
+
+            if verified_value != OFF_GRID_MINIMUM_SOC_PILOT_TO:
+                raise AutarcoConnectionError(
+                    "Write kon niet worden bevestigd via read-back: "
+                    f"verwacht 20%, ontvangen {verified_value!r}; "
+                    f"laatste fout={last_read_error}"
+                )
+
+            duration_ms = round((time.monotonic() - started) * 1000, 1)
+            _LOGGER.warning(
+                "Gecontroleerde settings-write uitgevoerd: register %s %s%% -> %s%% "
+                "en via read-back bevestigd in %.1f ms",
+                OFF_GRID_MINIMUM_SOC_REGISTER,
+                previous_value,
+                verified_value,
+                duration_ms,
+            )
+            return AutarcoWriteResult(
+                register=OFF_GRID_MINIMUM_SOC_REGISTER,
+                previous_value=previous_value,
+                requested_value=OFF_GRID_MINIMUM_SOC_PILOT_TO,
+                verified_value=verified_value,
+                duration_ms=duration_ms,
             )
 
     def _read_once_locked(self) -> tuple[dict[int, int], list[str]]:
