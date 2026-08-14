@@ -36,13 +36,15 @@ from .modbus_client import (
     AutarcoConnectionError,
     AutarcoConnectionSettings,
     AutarcoModbusClient,
+    OFF_GRID_MINIMUM_SOC_PILOT_FROM,
+    OFF_GRID_MINIMUM_SOC_PILOT_TO,
+    OFF_GRID_MINIMUM_SOC_REGISTER,
 )
 from .settings import (
     ACCESS_EXPERT,
     ACCESS_INSTALLER,
     ACCESS_STANDARD,
     AUTARCO_LH_MII_MANUAL_URL,
-    PHYSICAL_WRITES_ENABLED,
     SETTINGS,
     UNMAPPED_INSTALLER_SETTINGS,
     SettingValidationError,
@@ -196,15 +198,30 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class AutarcoLocalOptionsFlow(OptionsFlow):
-    """Provide a compact Settings Center for live inverter settings."""
+    """Provide a compact Settings Center with one guarded write pilot."""
+
+    def _coordinator(self):
+        return getattr(self.config_entry, "runtime_data", None)
 
     def _settings_data(self) -> dict[int, int]:
-        coordinator = getattr(self.config_entry, "runtime_data", None)
+        coordinator = self._coordinator()
         return getattr(coordinator, "settings_data", {}) or {}
 
     @staticmethod
     def _readonly_text() -> selector.TextSelector:
         return selector.TextSelector(selector.TextSelectorConfig(read_only=True))
+
+    @staticmethod
+    def _off_grid_soc_number() -> selector.NumberSelector:
+        return selector.NumberSelector(
+            selector.NumberSelectorConfig(
+                min=10,
+                max=100,
+                step=1,
+                mode=selector.NumberSelectorMode.BOX,
+                unit_of_measurement="%",
+            )
+        )
 
     def _format_setting(self, description) -> str:
         value = description.value_fn(self._settings_data())
@@ -213,11 +230,34 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         unit = description.native_unit_of_measurement
         return f"{value} {unit}" if unit else str(value)
 
-    def _schema_for_access_level(self, access_level: str) -> vol.Schema:
+    def _schema_for_access_level(
+        self,
+        access_level: str,
+        *,
+        enable_off_grid_soc_pilot: bool = False,
+    ) -> vol.Schema:
         fields: dict[Any, Any] = {}
         for description in SETTINGS:
             if description.access_level != access_level:
                 continue
+
+            if (
+                enable_off_grid_soc_pilot
+                and description.key == "setting_off_grid_overdischarge_soc"
+            ):
+                current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
+                fields[
+                    vol.Optional(
+                        description.key,
+                        default=(
+                            int(current)
+                            if current is not None
+                            else OFF_GRID_MINIMUM_SOC_PILOT_FROM
+                        ),
+                    )
+                ] = self._off_grid_soc_number()
+                continue
+
             fields[
                 vol.Optional(description.key, default=self._format_setting(description))
             ] = self._readonly_text()
@@ -234,7 +274,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         reserve_soc = data.get(43024)
         minimum_soc = data.get(43011)
         force_charge_soc = data.get(43018)
-        off_grid_minimum_soc = data.get(43137)
+        off_grid_minimum_soc = data.get(OFF_GRID_MINIMUM_SOC_REGISTER)
 
         reserve_relationship = "Unavailable"
         if reserve_soc is not None and minimum_soc is not None:
@@ -253,12 +293,6 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 else f"CHECK — {force_charge_soc}% >= {minimum_soc}%"
             )
 
-        off_grid_review = "Unavailable"
-        if off_grid_minimum_soc is not None:
-            off_grid_review = (
-                f"Current {off_grid_minimum_soc}% — desired review target 20%"
-            )
-
         def pct(value: int | None) -> str:
             return f"{value}%" if value is not None else "Unavailable"
 
@@ -270,36 +304,36 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 vol.Optional("safety_off_grid_minimum_soc", default=pct(off_grid_minimum_soc)): self._readonly_text(),
                 vol.Optional("safety_soc_relationship", default=reserve_relationship): self._readonly_text(),
                 vol.Optional("safety_force_relationship", default=force_relationship): self._readonly_text(),
-                vol.Optional("safety_off_grid_review", default=off_grid_review): self._readonly_text(),
+                vol.Optional(
+                    "safety_off_grid_review",
+                    default=(
+                        f"Current {off_grid_minimum_soc}% — write pilot target 20%"
+                        if off_grid_minimum_soc is not None
+                        else "Unavailable"
+                    ),
+                ): self._readonly_text(),
                 vol.Optional(
                     "safety_write_status",
                     default=(
-                        "Physical writes enabled"
-                        if PHYSICAL_WRITES_ENABLED
-                        else "Physical writes locked pending installer review"
+                        "PILOT — alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
                     ),
                 ): self._readonly_text(),
             }
         )
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Show all settings on one page in collapsible sections."""
-        if user_input is not None:
-            # v0.5.2 is still a read-only preview. Do not persist live values
-            # returned by the frontend from the read-only fields.
-            return self.async_create_entry(data={})
-
-        data_schema = vol.Schema(
+    def _settings_center_schema(self) -> vol.Schema:
+        return vol.Schema(
             {
                 vol.Required("standard_settings"): section(
                     self._schema_for_access_level(ACCESS_STANDARD),
                     {"collapsed": False},
                 ),
                 vol.Required("expert_settings"): section(
-                    self._schema_for_access_level(ACCESS_EXPERT),
-                    {"collapsed": True},
+                    self._schema_for_access_level(
+                        ACCESS_EXPERT,
+                        enable_off_grid_soc_pilot=True,
+                    ),
+                    {"collapsed": False},
                 ),
                 vol.Required("installer_settings"): section(
                     self._installer_schema(),
@@ -311,11 +345,92 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 ),
             }
         )
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show settings and execute only the guarded 10-to-20 SOC pilot."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            coordinator = self._coordinator()
+            current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
+            expert_data = user_input.get("expert_settings", {}) or {}
+            requested_raw = expert_data.get(
+                "setting_off_grid_overdischarge_soc",
+                current,
+            )
+
+            try:
+                requested = int(requested_raw) if requested_raw is not None else None
+            except (TypeError, ValueError):
+                requested = None
+
+            if requested is None:
+                _LOGGER.warning("Off-grid minimum SOC write afgebroken: ongeldige invoer")
+                errors["base"] = "unknown"
+            elif current is None:
+                _LOGGER.warning(
+                    "Off-grid minimum SOC write afgebroken: register %s is niet beschikbaar",
+                    OFF_GRID_MINIMUM_SOC_REGISTER,
+                )
+                errors["base"] = "unknown"
+            elif requested == int(current):
+                return self.async_create_entry(data={})
+            elif (
+                int(current) != OFF_GRID_MINIMUM_SOC_PILOT_FROM
+                or requested != OFF_GRID_MINIMUM_SOC_PILOT_TO
+            ):
+                _LOGGER.warning(
+                    "Off-grid SOC pilot geweigerd: actueel=%s, aangevraagd=%s; "
+                    "alleen 10%% -> 20%% is toegestaan",
+                    current,
+                    requested,
+                )
+                errors["base"] = "unknown"
+            elif coordinator is None:
+                _LOGGER.warning("Off-grid SOC pilot geweigerd: coordinator ontbreekt")
+                errors["base"] = "unknown"
+            else:
+                try:
+                    result = await self.hass.async_add_executor_job(
+                        coordinator.client.write_off_grid_minimum_soc_pilot,
+                        requested,
+                    )
+                except AutarcoConnectionError as err:
+                    _LOGGER.error(
+                        "Gecontroleerde Off-grid minimum SOC write mislukt: %s",
+                        err,
+                    )
+                    errors["base"] = "unknown"
+                except Exception:
+                    _LOGGER.exception(
+                        "Onverwachte fout tijdens gecontroleerde Off-grid SOC write"
+                    )
+                    errors["base"] = "unknown"
+                else:
+                    coordinator.settings_data[result.register] = result.verified_value
+                    coordinator.settings_last_write_register = result.register
+                    coordinator.settings_last_write_previous_value = result.previous_value
+                    coordinator.settings_last_write_value = result.verified_value
+                    coordinator.settings_last_write_duration_ms = result.duration_ms
+                    coordinator.async_update_listeners()
+                    _LOGGER.warning(
+                        "Off-grid minimum SOC succesvol gewijzigd en geverifieerd: "
+                        "%s%% -> %s%%",
+                        result.previous_value,
+                        result.verified_value,
+                    )
+                    return self.async_create_entry(data={})
+
         return self.async_show_form(
             step_id="init",
-            data_schema=data_schema,
+            data_schema=self._settings_center_schema(),
+            errors=errors,
             description_placeholders={
-                "write_status": "enabled" if PHYSICAL_WRITES_ENABLED else "locked",
+                "write_status": (
+                    "PILOT: alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
+                ),
                 "docs_url": AUTARCO_LH_MII_MANUAL_URL,
             },
         )
