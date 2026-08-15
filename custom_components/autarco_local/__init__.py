@@ -7,6 +7,7 @@ from homeassistant.core import HomeAssistant
 
 from .const import PLATFORMS
 from .coordinator import AutarcoLocalCoordinator
+from .settings_panel import async_register_settings_panel, unregister_settings_panel
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
 
@@ -22,6 +23,7 @@ async def async_setup_entry(
 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_register_settings_panel(hass, entry.entry_id)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
@@ -33,6 +35,7 @@ async def async_unload_entry(
     """Unload a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        unregister_settings_panel(hass, entry.entry_id)
         await entry.runtime_data.async_shutdown()
     return unloaded
 
