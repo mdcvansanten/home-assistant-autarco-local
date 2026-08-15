@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.2
+
+- Added a dedicated Autarco Local Settings Center panel with a mobile-friendly layout.
+- Setting names are larger; current values are aligned to the right and descriptions are larger below the setting row.
+- Kept the existing green/yellow/red access-level dots at the existing visual size.
+- Standard, Expert, Installer/system and Safety sections stay on one page and are collapsible.
+- Added an explicit write-access warning after the failed register 43137 hardware pilot.
+- Added official third-party EMS/write-access research and a support checklist for Autarco/Solis.
+- No additional registers are writable in this release.
+
+## 0.6.1
+
+- Kept the single guarded Off-grid minimum SOC write pilot limited to register `43137`, `10% -> 20%`.
+- Added detailed write diagnostics to distinguish Modbus rejection from an accepted write whose read-back remains unchanged.
+- Hardware test result: pre-read `10`, requested `20`, no Modbus exception, repeated read-back remained `10`.
+- No writes were added for any other setting.
+
+## 0.6.0
+
+- Added the first deliberately narrow physical write pilot for Off-grid minimum SOC.
+- Only holding register `43137` and only transition `10% -> 20%` are allowed by the pilot.
+- Requires a fresh pre-read and immediate read-back verification.
+- All other setting writes remain blocked.
+
 ## 0.5.2
 
 - Replaced the four-page Settings Center menu with one mobile-friendly form using native Home Assistant collapsible sections.
