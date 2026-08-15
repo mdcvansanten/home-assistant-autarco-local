@@ -207,6 +207,21 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         coordinator = self._coordinator()
         return getattr(coordinator, "settings_data", {}) or {}
 
+    def _set_write_diagnostic(self, message: str) -> None:
+        """Persist the last write diagnostic for the current HA runtime."""
+        coordinator = self._coordinator()
+        if coordinator is not None:
+            coordinator.settings_last_write_diagnostic = message
+        _LOGGER.warning("Autarco write-diagnose: %s", message)
+
+    def _write_status_text(self) -> str:
+        coordinator = self._coordinator()
+        diagnostic = getattr(coordinator, "settings_last_write_diagnostic", None)
+        base = "PILOT — alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
+        if not diagnostic:
+            return f"{base}. Nog geen write-diagnose beschikbaar."
+        return f"{base}. Laatste poging: {diagnostic}"
+
     @staticmethod
     def _readonly_text() -> selector.TextSelector:
         return selector.TextSelector(selector.TextSelectorConfig(read_only=True))
@@ -314,9 +329,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 ): self._readonly_text(),
                 vol.Optional(
                     "safety_write_status",
-                    default=(
-                        "PILOT — alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
-                    ),
+                    default=self._write_status_text(),
                 ): self._readonly_text(),
             }
         )
@@ -367,45 +380,51 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 requested = None
 
             if requested is None:
-                _LOGGER.warning("Off-grid minimum SOC write afgebroken: ongeldige invoer")
+                self._set_write_diagnostic("AFGEBROKEN — ongeldige invoer ontvangen")
                 errors["base"] = "unknown"
             elif current is None:
-                _LOGGER.warning(
-                    "Off-grid minimum SOC write afgebroken: register %s is niet beschikbaar",
-                    OFF_GRID_MINIMUM_SOC_REGISTER,
+                self._set_write_diagnostic(
+                    f"AFGEBROKEN — holding register {OFF_GRID_MINIMUM_SOC_REGISTER} is niet beschikbaar"
                 )
                 errors["base"] = "unknown"
             elif requested == int(current):
+                self._set_write_diagnostic(
+                    f"GEEN WIJZIGING — actuele en aangevraagde waarde zijn beide {current}%"
+                )
                 return self.async_create_entry(data={})
             elif (
                 int(current) != OFF_GRID_MINIMUM_SOC_PILOT_FROM
                 or requested != OFF_GRID_MINIMUM_SOC_PILOT_TO
             ):
-                _LOGGER.warning(
-                    "Off-grid SOC pilot geweigerd: actueel=%s, aangevraagd=%s; "
-                    "alleen 10%% -> 20%% is toegestaan",
-                    current,
-                    requested,
+                self._set_write_diagnostic(
+                    f"GEWEIGERD — actueel={current}%, aangevraagd={requested}%; alleen 10% -> 20% is toegestaan"
                 )
                 errors["base"] = "unknown"
             elif coordinator is None:
-                _LOGGER.warning("Off-grid SOC pilot geweigerd: coordinator ontbreekt")
+                self._set_write_diagnostic("AFGEBROKEN — Home Assistant coordinator ontbreekt")
                 errors["base"] = "unknown"
             else:
+                self._set_write_diagnostic(
+                    f"GESTART — register {OFF_GRID_MINIMUM_SOC_REGISTER}: pre-read {current}%, aangevraagd 20%"
+                )
                 try:
                     result = await self.hass.async_add_executor_job(
                         coordinator.client.write_off_grid_minimum_soc_pilot,
                         requested,
                     )
                 except AutarcoConnectionError as err:
-                    _LOGGER.error(
-                        "Gecontroleerde Off-grid minimum SOC write mislukt: %s",
-                        err,
+                    diagnostic = (
+                        f"MISLUKT — register {OFF_GRID_MINIMUM_SOC_REGISTER}, "
+                        f"pre-read={current}%, requested={requested}%; {err}"
                     )
+                    self._set_write_diagnostic(diagnostic)
                     errors["base"] = "unknown"
-                except Exception:
+                except Exception as err:
                     _LOGGER.exception(
                         "Onverwachte fout tijdens gecontroleerde Off-grid SOC write"
+                    )
+                    self._set_write_diagnostic(
+                        f"MISLUKT — onverwachte {type(err).__name__}: {err}"
                     )
                     errors["base"] = "unknown"
                 else:
@@ -414,6 +433,10 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                     coordinator.settings_last_write_previous_value = result.previous_value
                     coordinator.settings_last_write_value = result.verified_value
                     coordinator.settings_last_write_duration_ms = result.duration_ms
+                    self._set_write_diagnostic(
+                        f"SUCCES — register {result.register}: {result.previous_value}% -> "
+                        f"{result.verified_value}% bevestigd in {result.duration_ms} ms"
+                    )
                     coordinator.async_update_listeners()
                     _LOGGER.warning(
                         "Off-grid minimum SOC succesvol gewijzigd en geverifieerd: "
