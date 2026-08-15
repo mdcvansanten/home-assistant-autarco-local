@@ -6,7 +6,8 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "frontend"
+    "frontend",
+    "http"
   ],
   "documentation": "https://github.com/mdcvansanten/home-assistant-autarco-local",
   "integration_type": "hub",
