@@ -20,6 +20,9 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+STORAGE_MODE_REGISTER = 43110
+OFF_GRID_MODE_BIT = 2
+OFF_GRID_MODE_MASK = 1 << OFF_GRID_MODE_BIT
 OFF_GRID_MINIMUM_SOC_REGISTER = 43137
 OFF_GRID_MINIMUM_SOC_PILOT_FROM = 10
 OFF_GRID_MINIMUM_SOC_PILOT_TO = 20
@@ -65,13 +68,16 @@ class AutarcoSettingsReadResult:
 
 @dataclass(slots=True, frozen=True)
 class AutarcoWriteResult:
-    """Verified result of the deliberately narrow v0.6.0 write pilot."""
+    """Verified result of a guarded settings write transaction."""
 
     register: int
     previous_value: int
     requested_value: int
     verified_value: int
     duration_ms: float
+    dependency_was_active: bool = False
+    dependency_temporarily_enabled: bool = False
+    dependency_restored: bool = True
 
 
 class AutarcoModbusClient:
@@ -108,11 +114,7 @@ class AutarcoModbusClient:
     def _ensure_connected_locked(
         self, reason: str | None = None
     ) -> tuple[float, bool, str | None]:
-        """Ensure a usable TCP connection.
-
-        Returns connect duration, whether this was a reconnect (not the first
-        connection), and the reconnect reason.
-        """
+        """Ensure a usable TCP connection."""
         if self._client is not None and self._client.connected:
             return 0.0, False, None
 
@@ -131,6 +133,76 @@ class AutarcoModbusClient:
         is_reconnect = self._ever_connected
         self._ever_connected = True
         return duration, is_reconnect, reason if is_reconnect else None
+
+    def _read_single_holding_locked(self, register: int, context: str) -> int:
+        client = self._client
+        if client is None or not client.connected:
+            raise AutarcoConnectionError("Modbus-socket is niet verbonden")
+        try:
+            result = client.read_holding_registers(
+                register,
+                count=1,
+                device_id=self._settings.device_id,
+            )
+        except (ModbusException, OSError, TimeoutError) as err:
+            self._disconnect_locked()
+            raise AutarcoConnectionError(
+                f"{context}: {type(err).__name__}: {err}"
+            ) from err
+        if result.isError():
+            raise AutarcoConnectionError(f"{context}: Modbus-fout {result}")
+        values = getattr(result, "registers", None) or []
+        if not values:
+            raise AutarcoConnectionError(f"{context}: geen registerwaarde ontvangen")
+        return int(values[0])
+
+    def _write_single_holding_locked(self, register: int, value: int, context: str) -> None:
+        client = self._client
+        if client is None or not client.connected:
+            raise AutarcoConnectionError("Modbus-socket is niet verbonden")
+        try:
+            result = client.write_register(
+                register,
+                int(value),
+                device_id=self._settings.device_id,
+            )
+        except (ModbusException, OSError, TimeoutError) as err:
+            self._disconnect_locked()
+            raise AutarcoConnectionError(
+                f"{context}: {type(err).__name__}: {err}"
+            ) from err
+        if result.isError():
+            raise AutarcoConnectionError(f"{context}: Modbus-write geweigerd: {result}")
+
+    def _verify_single_holding_locked(
+        self,
+        register: int,
+        expected: int,
+        context: str,
+        *,
+        attempts: int = 5,
+        delay: float = 0.4,
+        mask: int | None = None,
+    ) -> int:
+        last_value: int | None = None
+        last_error: str | None = None
+        for _attempt in range(attempts):
+            time.sleep(delay)
+            try:
+                value = self._read_single_holding_locked(register, context)
+            except AutarcoConnectionError as err:
+                last_error = str(err)
+                continue
+            last_value = value
+            if mask is None:
+                if value == expected:
+                    return value
+            elif (value & mask) == (expected & mask):
+                return value
+        raise AutarcoConnectionError(
+            f"{context}: read-back verwacht {expected}, ontvangen {last_value!r}; "
+            f"laatste fout={last_error}"
+        )
 
     def validate(self) -> None:
         """Validate settings with one read-only request."""
@@ -264,12 +336,17 @@ class AutarcoModbusClient:
             )
 
     def write_off_grid_minimum_soc_pilot(self, requested_value: int) -> AutarcoWriteResult:
-        """Perform the single guarded v0.6.0 write pilot.
+        """Perform the guarded dependency-aware Off-grid SOC write pilot.
 
-        Safety guardrails are deliberately hard-coded for the first hardware
-        validation: only holding register 43137, only a transition from the
-        verified current value 10 to 20, and mandatory read-back verification.
-        No other register or value can be written through this method.
+        Hardware validation showed that Off-grid minimum SOC can only be changed
+        while Off-grid mode is active. This transaction preserves the user's
+        original work-mode state:
+
+        * if Off-grid is already active, it is left active;
+        * if Autarco Local temporarily activates Off-grid, the complete original
+          storage-mode register is restored afterwards;
+        * cleanup is attempted even when the target write fails;
+        * an unverified restore is a hard failure.
         """
         if int(requested_value) != OFF_GRID_MINIMUM_SOC_PILOT_TO:
             raise AutarcoConnectionError(
@@ -278,96 +355,126 @@ class AutarcoModbusClient:
 
         with self._lock:
             self._ensure_connected_locked("socket was niet verbonden vóór settings-write")
-            client = self._client
-            if client is None or not client.connected:
-                raise AutarcoConnectionError("Modbus-socket is niet verbonden")
-
             started = time.monotonic()
-            try:
-                before = client.read_holding_registers(
-                    OFF_GRID_MINIMUM_SOC_REGISTER,
-                    count=1,
-                    device_id=self._settings.device_id,
-                )
-            except (ModbusException, OSError, TimeoutError) as err:
-                self._disconnect_locked()
-                raise AutarcoConnectionError(
-                    f"Pre-write read mislukt: {type(err).__name__}: {err}"
-                ) from err
 
-            if before.isError():
-                raise AutarcoConnectionError(f"Pre-write Modbus-fout: {before}")
-            before_values = getattr(before, "registers", None) or []
-            if not before_values:
-                raise AutarcoConnectionError("Pre-write read gaf geen registerwaarde")
-            previous_value = int(before_values[0])
+            previous_value = self._read_single_holding_locked(
+                OFF_GRID_MINIMUM_SOC_REGISTER,
+                "Pre-write read Off-grid minimum SOC mislukt",
+            )
             if previous_value != OFF_GRID_MINIMUM_SOC_PILOT_FROM:
                 raise AutarcoConnectionError(
                     "Write afgebroken: Off-grid minimum SOC is niet meer 10% "
                     f"maar {previous_value}%"
                 )
 
+            original_mode_value = self._read_single_holding_locked(
+                STORAGE_MODE_REGISTER,
+                "Pre-write read storage mode mislukt",
+            )
+            dependency_was_active = bool(original_mode_value & OFF_GRID_MODE_MASK)
+            dependency_temporarily_enabled = False
+            dependency_restored = True
+            mode_after_enable = original_mode_value
+            target_verified_value: int | None = None
+            target_error: AutarcoConnectionError | None = None
+            cleanup_error: AutarcoConnectionError | None = None
+
             try:
-                write_result = client.write_register(
+                if not dependency_was_active:
+                    enable_value = original_mode_value | OFF_GRID_MODE_MASK
+                    self._write_single_holding_locked(
+                        STORAGE_MODE_REGISTER,
+                        enable_value,
+                        "Tijdelijk activeren Off-grid mode mislukt",
+                    )
+                    mode_after_enable = self._verify_single_holding_locked(
+                        STORAGE_MODE_REGISTER,
+                        enable_value,
+                        "Off-grid mode kon niet worden bevestigd",
+                        mask=OFF_GRID_MODE_MASK,
+                    )
+                    dependency_temporarily_enabled = True
+
+                self._write_single_holding_locked(
                     OFF_GRID_MINIMUM_SOC_REGISTER,
                     OFF_GRID_MINIMUM_SOC_PILOT_TO,
-                    device_id=self._settings.device_id,
+                    "Off-grid minimum SOC write mislukt",
                 )
-            except (ModbusException, OSError, TimeoutError) as err:
-                self._disconnect_locked()
+                target_verified_value = self._verify_single_holding_locked(
+                    OFF_GRID_MINIMUM_SOC_REGISTER,
+                    OFF_GRID_MINIMUM_SOC_PILOT_TO,
+                    "Off-grid minimum SOC kon niet worden bevestigd",
+                )
+            except AutarcoConnectionError as err:
+                target_error = err
+            finally:
+                if dependency_temporarily_enabled:
+                    try:
+                        observed_before_restore = self._read_single_holding_locked(
+                            STORAGE_MODE_REGISTER,
+                            "Mode-state vóór restore kon niet worden gelezen",
+                        )
+                        if observed_before_restore != mode_after_enable:
+                            raise AutarcoConnectionError(
+                                "Restore afgebroken: storage mode veranderde extern tijdens "
+                                f"de transactie (verwacht {mode_after_enable}, ontvangen "
+                                f"{observed_before_restore})"
+                            )
+                        self._write_single_holding_locked(
+                            STORAGE_MODE_REGISTER,
+                            original_mode_value,
+                            "Herstellen oorspronkelijke storage mode mislukt",
+                        )
+                        self._verify_single_holding_locked(
+                            STORAGE_MODE_REGISTER,
+                            original_mode_value,
+                            "Oorspronkelijke storage mode kon niet worden bevestigd",
+                        )
+                        dependency_restored = True
+                    except AutarcoConnectionError as err:
+                        dependency_restored = False
+                        cleanup_error = err
+
+            if cleanup_error is not None:
+                if target_error is not None:
+                    raise AutarcoConnectionError(
+                        f"Target write mislukt ({target_error}); bovendien kon de "
+                        f"oorspronkelijke mode niet veilig worden hersteld ({cleanup_error})"
+                    ) from cleanup_error
                 raise AutarcoConnectionError(
-                    f"Settings-write mislukt: {type(err).__name__}: {err}"
-                ) from err
+                    "Off-grid minimum SOC is mogelijk gewijzigd, maar de oorspronkelijke "
+                    f"storage mode kon niet veilig worden hersteld: {cleanup_error}"
+                ) from cleanup_error
 
-            if write_result.isError():
-                raise AutarcoConnectionError(f"Modbus-write geweigerd: {write_result}")
+            if target_error is not None:
+                raise target_error
 
-            verified_value: int | None = None
-            last_read_error: str | None = None
-            for _attempt in range(5):
-                time.sleep(0.4)
-                try:
-                    verify = client.read_holding_registers(
-                        OFF_GRID_MINIMUM_SOC_REGISTER,
-                        count=1,
-                        device_id=self._settings.device_id,
-                    )
-                except (ModbusException, OSError, TimeoutError) as err:
-                    last_read_error = f"{type(err).__name__}: {err}"
-                    continue
-                if verify.isError():
-                    last_read_error = str(verify)
-                    continue
-                values = getattr(verify, "registers", None) or []
-                if not values:
-                    last_read_error = "leeg read-back antwoord"
-                    continue
-                verified_value = int(values[0])
-                if verified_value == OFF_GRID_MINIMUM_SOC_PILOT_TO:
-                    break
-
-            if verified_value != OFF_GRID_MINIMUM_SOC_PILOT_TO:
+            if target_verified_value != OFF_GRID_MINIMUM_SOC_PILOT_TO:
                 raise AutarcoConnectionError(
-                    "Write kon niet worden bevestigd via read-back: "
-                    f"verwacht 20%, ontvangen {verified_value!r}; "
-                    f"laatste fout={last_read_error}"
+                    "Interne fout: target write is niet als 20% geverifieerd"
                 )
 
             duration_ms = round((time.monotonic() - started) * 1000, 1)
             _LOGGER.warning(
-                "Gecontroleerde settings-write uitgevoerd: register %s %s%% -> %s%% "
-                "en via read-back bevestigd in %.1f ms",
+                "Gecontroleerde dependency-aware settings-write: register %s %s%% -> %s%%; "
+                "off-grid vooraf=%s, tijdelijk geactiveerd=%s, restore=%s, %.1f ms",
                 OFF_GRID_MINIMUM_SOC_REGISTER,
                 previous_value,
-                verified_value,
+                target_verified_value,
+                dependency_was_active,
+                dependency_temporarily_enabled,
+                dependency_restored,
                 duration_ms,
             )
             return AutarcoWriteResult(
                 register=OFF_GRID_MINIMUM_SOC_REGISTER,
                 previous_value=previous_value,
                 requested_value=OFF_GRID_MINIMUM_SOC_PILOT_TO,
-                verified_value=verified_value,
+                verified_value=target_verified_value,
                 duration_ms=duration_ms,
+                dependency_was_active=dependency_was_active,
+                dependency_temporarily_enabled=dependency_temporarily_enabled,
+                dependency_restored=dependency_restored,
             )
 
     def _read_once_locked(self) -> tuple[dict[int, int], list[str]]:
