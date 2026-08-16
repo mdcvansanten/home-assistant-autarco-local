@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.3
+
+- Added dependency-aware setting metadata for parent-mode requirements.
+- Hardware-validated Off-grid minimum SOC as dependent on Off-grid mode being active.
+- Reworked the guarded Off-grid minimum SOC write pilot to preserve the user's original work-mode state.
+- If Off-grid is already active before the write, Autarco Local leaves it active afterwards.
+- If Autarco Local temporarily activates Off-grid, it restores and verifies the complete original storage/work-mode register after the SOC write.
+- Cleanup/restoration is attempted even when the target write fails; an unverified restore is reported as a hard failure.
+- Added conflict detection so an unexpected external mode change during the transaction is not blindly overwritten.
+- Recorded documented-but-not-yet-hardware-validated dependencies for Time of Use schedules/currents and Battery Reserve SOC.
+- Added `docs/write-dependencies.md` with the generic state-preservation and dependency policy.
+- No additional setting registers have been opened for writing.
+
 ## 0.6.2
 
 - Added a dedicated Autarco Local Settings Center panel with a mobile-friendly layout.
