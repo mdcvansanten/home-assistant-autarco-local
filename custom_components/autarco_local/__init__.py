@@ -24,8 +24,8 @@ from .settings_write_v066 import (
     OFF_GRID_MINIMUM_SOC_MAX,
     OFF_GRID_MINIMUM_SOC_MIN,
 )
-from .settings_write_v066_final_verify import (
-    async_write_off_grid_minimum_soc_v066_final,
+from .settings_write_v066_safety import (
+    async_write_off_grid_minimum_soc_v066_safe,
 )
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
@@ -117,7 +117,15 @@ async def _async_handle_unlock_settings(
             "Er is nog geen instellingen-PIN ingesteld. Open Autarco Local → Configureren "
             "en stel eerst een PIN van 4 tot 8 cijfers in."
         )
-    if not verify_pin(entry, str(call.data["pin"])):
+
+    # PBKDF2 verification is deliberately moved off Home Assistant's event loop.
+    # This keeps the UI responsive even on slower Raspberry Pi hardware.
+    pin_valid = await hass.async_add_executor_job(
+        verify_pin,
+        entry,
+        str(call.data["pin"]),
+    )
+    if not pin_valid:
         raise HomeAssistantError("Onjuiste instellingen-PIN.")
     unlock_settings(hass, entry.entry_id, user_id)
 
@@ -149,7 +157,7 @@ async def _async_handle_set_off_grid_minimum_soc(
         raise HomeAssistantError(
             "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
         )
-    await async_write_off_grid_minimum_soc_v066_final(
+    await async_write_off_grid_minimum_soc_v066_safe(
         hass,
         coordinator,
         int(call.data["soc"]),
