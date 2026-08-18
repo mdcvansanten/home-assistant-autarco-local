@@ -6,4 +6,4 @@ import "./autarco-dashboard-v066-patch.js?v=0.6.6.2";
 import "./autarco-dashboard-v066-diagnostics.js?v=0.6.6";
 import "./autarco-dashboard-v066-data-quality.js?v=0.6.6";
 import "./autarco-dashboard-v066-write.js?v=0.6.6";
-import "./autarco-dashboard-v066-ui-state.js?v=0.6.6.3";
+import "./autarco-dashboard-v066-ui-state.js?v=0.6.6.4";
