@@ -67,4 +67,4 @@ def unregister_settings_panel(hass: HomeAssistant, entry_id: str) -> None:
     if state["entries"]:
         return
 
-    frontend.async_remove_panel(PANEL_URL_PATH, warn_if_unknown=False)
+    frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
