@@ -2,18 +2,19 @@
 //
 // Normal dashboard cards may refresh with Home Assistant telemetry. Interactive
 // dialogs are different: while a PIN or Expert preflight dialog is open, a
-// telemetry update must not rebuild the dialog DOM underneath the user. That
-// caused fields, scroll position and the modal itself to jump every few seconds.
+// telemetry update must not rebuild the dialog DOM underneath the user.
 //
-// Explicit user actions still call render() themselves, so validation,
-// busy/error/success states continue to update normally.
+// Important: Home Assistant may instantiate the custom element immediately when
+// the bootstrap calls customElements.define(), before this final patch module has
+// been evaluated. Therefore an old base 5-second timer may already be running.
+// This patch replaces that timer lazily from the hass setter as well, making the
+// fix effective for already-connected panel instances.
 
 const PANEL_UI_STATE_V066 = customElements.get("autarco-local-dashboard-panel");
 
 if (PANEL_UI_STATE_V066) {
   const proto = PANEL_UI_STATE_V066.prototype;
   const previousRender = proto.render;
-  const previousConnectedCallback = proto.connectedCallback;
   const hassDescriptor = Object.getOwnPropertyDescriptor(proto, "hass");
 
   function dialogOpen(instance) {
@@ -31,9 +32,41 @@ if (PANEL_UI_STATE_V066) {
     return input.id || input.name || null;
   }
 
+  function installStableTimer(instance) {
+    if (!instance || instance._autarcoStableTimerInstalled) return;
+
+    // A base timer may already exist because the element can be connected before
+    // this patch module is evaluated. Always replace it once.
+    if (instance._timer) {
+      window.clearInterval(instance._timer);
+      instance._timer = null;
+    }
+
+    instance._timer = window.setInterval(() => {
+      if (instance._activeTab !== "settings" || instance._unlockedUntil <= 0) return;
+
+      if (Date.now() >= instance._unlockedUntil) {
+        instance._unlockedUntil = 0;
+        // An expired unlock invalidates the preflight. Closing it is deliberate,
+        // not a telemetry refresh.
+        instance._preflightOpen = false;
+        instance._unlockOpen = false;
+        instance.render();
+        return;
+      }
+
+      // Refresh the visible countdown only when no interactive dialog is open.
+      if (!dialogOpen(instance)) {
+        instance.render();
+      }
+    }, 5000);
+
+    instance._autarcoStableTimerInstalled = true;
+  }
+
   // Home Assistant assigns a new hass object for every state update. Keep the
-  // latest object available to the backend/UI, but do not rebuild an open
-  // interactive dialog just because telemetry changed in the background.
+  // latest object available for a fresh backend pre-read, but never rebuild an
+  // open interactive dialog because of telemetry.
   if (hassDescriptor && hassDescriptor.set) {
     Object.defineProperty(proto, "hass", {
       configurable: true,
@@ -41,6 +74,7 @@ if (PANEL_UI_STATE_V066) {
       get: hassDescriptor.get,
       set(value) {
         this._hass = value;
+        installStableTimer(this);
         if (!dialogOpen(this)) {
           this.render();
         }
@@ -48,31 +82,15 @@ if (PANEL_UI_STATE_V066) {
     });
   }
 
-  // The base panel updates the 10-minute unlock countdown every five seconds by
-  // re-rendering. Replace that timer with a modal-aware variant so an open
-  // preflight/PIN dialog remains physically stationary while the countdown
-  // continues in memory.
+  // Also cover panel instances connected only after this patch is loaded.
+  const previousConnectedCallback = proto.connectedCallback;
   proto.connectedCallback = function connectedWithStableDialogs() {
     if (previousConnectedCallback) {
       previousConnectedCallback.call(this);
     }
-
-    if (this._timer) {
-      window.clearInterval(this._timer);
-    }
-
-    this._timer = window.setInterval(() => {
-      if (this._activeTab !== "settings" || this._unlockedUntil <= 0) return;
-
-      const expired = Date.now() >= this._unlockedUntil;
-      if (expired) {
-        this._unlockedUntil = 0;
-      }
-
-      if (!dialogOpen(this)) {
-        this.render();
-      }
-    }, 5000);
+    // previousConnectedCallback may have created the base timer; replace it.
+    this._autarcoStableTimerInstalled = false;
+    installStableTimer(this);
   };
 
   proto.render = function renderWithPersistentUiState() {
@@ -97,9 +115,6 @@ if (PANEL_UI_STATE_V066) {
         });
       });
 
-      // Preserve local scroll containers as a defensive fallback for explicit
-      // renders (validation/busy/error/success). Ordinary telemetry renders are
-      // suppressed entirely while a dialog is open.
       [
         ["backdrop", this.shadowRoot.querySelector(".backdrop")],
         ["dialog", this.shadowRoot.querySelector(".dialog")],
@@ -184,6 +199,20 @@ if (PANEL_UI_STATE_V066) {
           }
         }
       }
+    }
+
+    // Defensive consistency check for explicit renders while the Expert dialog
+    // is open. Restoring a checked checkbox must also restore the enabled state
+    // of the confirmation button.
+    const targetInput = this.shadowRoot.querySelector("#off-grid-target");
+    const confirmCheckbox = this.shadowRoot.querySelector("#confirm-write");
+    const confirmButton = this.shadowRoot.querySelector('[data-action="confirm-write"]');
+    if (targetInput && confirmCheckbox && confirmButton) {
+      const value = Number(targetInput.value);
+      const current = this._number("off_grid_minimum_soc");
+      const valid = Number.isInteger(value) && value >= 10 && value <= 100 && value !== current;
+      confirmCheckbox.disabled = !valid || this._writeBusy;
+      confirmButton.disabled = !valid || !confirmCheckbox.checked || this._writeBusy;
     }
   };
 }
