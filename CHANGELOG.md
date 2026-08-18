@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.6.5
+
+- Replaced the separate v0.6.4 Settings Center page with one Autarco Local dashboard shell containing `Overzicht`, `PV`, `Batterij`, `Diagnose` and `Instellingen` tabs.
+- Moved the dependency-aware Settings UI into the `Instellingen` tab while retaining the existing green/yellow/red access classification.
+- Restored the native Home Assistant `Configureren` / Options flow as a functional settings fallback instead of keeping it read-only.
+- Added a backend-protected settings PIN: 4–8 digits, stored only as a salted PBKDF2-SHA256 hash in config-entry options.
+- Added per-Home-Assistant-user temporary settings unlocks with a ten-minute lifetime and an explicit re-lock action.
+- The Off-grid minimum SOC write service now refuses writes when the caller does not have a valid backend unlock.
+- Restored the native `10% -> 20%` Off-grid minimum SOC pilot in `Configureren`; that fallback requires the configured PIN explicitly before a write.
+- Both UI routes use the same shared dependency-aware write controller and the same temporary Off-grid safety gate.
+- Kept the actual inverter write limited to register `43137`, transition `10% -> 20%`, with fresh pre-read, target read-back, complete work-mode restore where needed and conflict detection.
+- Removed the obsolete v0.6.4 `autarco-settings-panel.js` frontend after the black-screen hardware test.
+- Added frontend JavaScript syntax validation (`node --check`) to CI so custom-panel syntax is checked alongside Python, JSON, Hassfest and HACS validation.
+- No additional inverter setting registers were opened for writing.
+
 ## 0.6.4
 
 - Added a guided Expert preflight in the custom Settings Center for the single hardware-validated Off-grid minimum SOC pilot (`10% -> 20%`).
@@ -106,7 +121,7 @@
 - Added a binary sensor showing whether PV production is currently active.
 - Added optional PV alarm-code and DC-bus-voltage diagnostics.
 - Existing inverter, battery and connection monitoring retained.
-- No holding-register settings polling and no Modbus write functionality in this release.
+- No holding-register settings polling and no Modbus write functionality changed in this release.
 - Read-only inverter-settings work moved to the next roadmap phase.
 
 ## 0.3.5
