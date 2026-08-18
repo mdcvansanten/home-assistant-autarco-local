@@ -1,10 +1,45 @@
+unlock_settings:
+  name: Unlock Autarco Local settings
+  description: >-
+    Unlocks write-capable Autarco Local settings for the current logged-in Home
+    Assistant user for ten minutes after validating the configured settings PIN.
+  fields:
+    pin:
+      name: Settings PIN
+      description: PIN configured in Autarco Local → Configure.
+      required: true
+      selector:
+        text:
+          type: password
+    config_entry_id:
+      name: Config entry ID
+      description: >-
+        Optional. Required only when more than one Autarco Local config entry is
+        loaded.
+      required: false
+      selector:
+        text:
+
+lock_settings:
+  name: Lock Autarco Local settings
+  description: Immediately revokes the current user's temporary settings unlock.
+  fields:
+    config_entry_id:
+      name: Config entry ID
+      description: >-
+        Optional. Required only when more than one Autarco Local config entry is
+        loaded.
+      required: false
+      selector:
+        text:
+
 set_off_grid_minimum_soc:
   name: Set Off-grid minimum SOC (pilot)
   description: >-
     Guarded hardware pilot for changing Off-grid minimum SOC from 10% to 20%.
-    If Off-grid is already active it remains active. If Autarco Local must
-    temporarily activate Off-grid, the original complete work-mode state is
-    restored and verified afterwards.
+    Requires an active PIN unlock. If Off-grid is already active it remains
+    active. If Autarco Local must temporarily activate Off-grid, the original
+    complete work-mode state is restored and verified afterwards.
   fields:
     soc:
       name: Target SOC
