@@ -19,7 +19,7 @@ CONF_DEVICE_ID: Final = "device_id"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_RETRIES: Final = "retries"
-PLATFORMS: Final = ["binary_sensor", "sensor"]
+PLATFORMS: Final = ["binary_sensor", "sensor", "switch"]
 
 # Runtime/input registers used by the existing monitoring layer.
 REGISTER_START: Final = 33000
@@ -30,7 +30,7 @@ VALIDATION_REGISTER_COUNT: Final = 10
 
 # Read-only holding-register blocks used by the v0.5 settings layer.
 # Blocks are deliberately narrow so reserved/unsupported addresses cannot make
-# unrelated settings unavailable. No Modbus write functions are implemented.
+# unrelated settings unavailable. Physical writes remain separately guarded.
 SETTING_REGISTER_BLOCKS: Final = (
     (43010, 2),   # overcharge / overdischarge SOC
     (43018, 1),   # force-charge SOC
