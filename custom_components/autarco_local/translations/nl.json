@@ -38,133 +38,23 @@
     }
   },
   "options": {
+    "error": {
+      "pin_conflict": "Kies óf een nieuwe PIN óf PIN verwijderen, niet beide.",
+      "invalid_pin": "Voer een geldige PIN van 4 tot en met 8 cijfers in."
+    },
     "step": {
       "init": {
-        "title": "Instellingencentrum",
-        "description": "Live omvormerinstellingen op één pagina. Fysieke Modbus-writes zijn momenteel **{write_status}**. [Autarco LH-MII documentatie]({docs_url})",
-        "sections": {
-          "standard_settings": {
-            "name": "🟢 Standaardinstellingen",
-            "description": "Normale eindgebruikersinstellingen. Deze sectie staat standaard open.",
-            "data": {
-              "setting_reserve_soc": "Reserve-SOC",
-              "setting_self_use_mode": "Zelfverbruikmodus",
-              "setting_time_of_use_mode": "Nethandelschema / Time-of-use",
-              "setting_reserve_battery_mode": "Reservebatterijmodus",
-              "setting_feed_in_priority_mode": "Terugleverprioriteit",
-              "setting_charge_start_1": "Laadslot 1 start",
-              "setting_charge_end_1": "Laadslot 1 einde",
-              "setting_discharge_start_1": "Ontlaadslot 1 start",
-              "setting_discharge_end_1": "Ontlaadslot 1 einde",
-              "setting_charge_start_2": "Laadslot 2 start",
-              "setting_charge_end_2": "Laadslot 2 einde",
-              "setting_discharge_start_2": "Ontlaadslot 2 start",
-              "setting_discharge_end_2": "Ontlaadslot 2 einde",
-              "setting_charge_start_3": "Laadslot 3 start",
-              "setting_charge_end_3": "Laadslot 3 einde",
-              "setting_discharge_start_3": "Ontlaadslot 3 start",
-              "setting_discharge_end_3": "Ontlaadslot 3 einde"
-            },
-            "data_description": {
-              "setting_reserve_soc": "Batterijreserve. Toekomstige writes handhaven altijd Reserve-SOC ≥ Minimum batterij-SOC.",
-              "setting_self_use_mode": "Gebruikt PV eerst voor huis en batterij voordat overschot wordt teruggeleverd.",
-              "setting_time_of_use_mode": "Activeert gepland laden en ontladen via de ingestelde tijdsloten.",
-              "setting_reserve_battery_mode": "Activeert het gebruik van de ingestelde Reserve-SOC als batterijreserve.",
-              "setting_feed_in_priority_mode": "Geeft waar ondersteund meer prioriteit aan teruglevering.",
-              "setting_charge_start_1": "Start van laadperiode 1.",
-              "setting_charge_end_1": "Einde van laadperiode 1.",
-              "setting_discharge_start_1": "Start van ontlaadperiode 1.",
-              "setting_discharge_end_1": "Einde van ontlaadperiode 1.",
-              "setting_charge_start_2": "Start van laadperiode 2.",
-              "setting_charge_end_2": "Einde van laadperiode 2.",
-              "setting_discharge_start_2": "Start van ontlaadperiode 2.",
-              "setting_discharge_end_2": "Einde van ontlaadperiode 2.",
-              "setting_charge_start_3": "Start van laadperiode 3.",
-              "setting_charge_end_3": "Einde van laadperiode 3.",
-              "setting_discharge_start_3": "Start van ontlaadperiode 3.",
-              "setting_discharge_end_3": "Einde van ontlaadperiode 3."
-            }
-          },
-          "expert_settings": {
-            "name": "🟡 Expert-instellingen",
-            "description": "Geavanceerde batterij- en bedrijfsinstellingen. Standaard ingeklapt; toekomstige writes vereisen validatie en bevestiging.",
-            "data": {
-              "setting_overdischarge_soc": "Minimum batterij-SOC",
-              "setting_force_charge_soc": "Force-charge-SOC",
-              "setting_force_charge_power_limit": "Force-charge vermogenslimiet",
-              "setting_off_grid_mode": "Off-gridmodus",
-              "setting_allow_grid_charge": "Laden vanuit net toestaan",
-              "setting_off_grid_overdischarge_soc": "Minimum-SOC off-grid",
-              "setting_time_charge_current": "Geplande laadstroom",
-              "setting_time_discharge_current": "Geplande ontlaadstroom"
-            },
-            "data_description": {
-              "setting_overdischarge_soc": "Normale ondergrens voor batterijontlading. Hoger bewaart meer reserve; lager geeft meer bruikbare capaciteit.",
-              "setting_force_charge_soc": "Lage-SOC beschermingsgrens die samenhangt met geforceerd laden. Dit is de huidige 10%-grens die relevant is voor het onderzoek naar nachtelijk laden vanuit het net.",
-              "setting_force_charge_power_limit": "Vermogenslimiet voor force-charge gedrag. Een verkeerde waarde verandert hoe krachtig de batterij wordt hersteld.",
-              "setting_off_grid_mode": "Stuurt off-gridbedrijf. Alleen gebruiken bij een elektrisch geschikte installatie en bijbehorende fysieke omschakeling.",
-              "setting_allow_grid_charge": "Staat laden vanuit het elektriciteitsnet toe wanneer de actieve bedrijfsmodus dit gebruikt.",
-              "setting_off_grid_overdischarge_soc": "Minimum-SOC tijdens off-gridbedrijf. Hoger bewaart meer noodreserve.",
-              "setting_time_charge_current": "Batterijlaadstroom voor gepland Time-of-use-bedrijf.",
-              "setting_time_discharge_current": "Batterijontlaadstroom voor gepland Time-of-use-bedrijf."
-            }
-          },
-          "installer_settings": {
-            "name": "🔴 Installer-/systeeminstellingen",
-            "description": "Zichtbaar voor diagnose en beoordeling door de installateur, maar read-only. Nog niet gemapte waarden blijven bewust ongemapt in plaats van dat we een register gokken.",
-            "data": {
-              "setting_overcharge_soc": "Overlaad-SOC",
-              "installer_grid_standard": "Netcode / Grid Standard",
-              "installer_grid_voltage_limits": "Netspanningsbeveiligingsgrenzen",
-              "installer_grid_frequency_limits": "Netfrequentiebeveiligingsgrenzen",
-              "installer_anti_islanding": "Anti-islanding / netbeveiliging",
-              "installer_meter_type": "Metertype",
-              "installer_meter_function": "Meterfunctie / positie",
-              "installer_ct_direction": "CT-richting / configuratie",
-              "installer_battery_select": "Battery Select / accutype",
-              "installer_battery_communication": "Batterijcommunicatietype",
-              "installer_battery_parameters": "Batterijchemie / spanningsparameters",
-              "installer_modbus_address": "Modbus-adres / communicatieparameters",
-              "installer_factory_calibration": "Fabriekskalibratie / testinstellingen",
-              "installer_firmware_parameters": "Firmware-/fabrieksparameters"
-            },
-            "data_description": {
-              "setting_overcharge_soc": "Bovenste SOC-beveiligingsinstelling. Blijft installer/read-only.",
-              "installer_grid_standard": "Netcode moet overeenkomen met netbeheerderseisen en goedgekeurde installatieconfiguratie.",
-              "installer_grid_voltage_limits": "Beveiligingsgrenzen voor netspanning. Alleen installer/systeem.",
-              "installer_grid_frequency_limits": "Beveiligingsgrenzen voor netfrequentie. Alleen installer/systeem.",
-              "installer_anti_islanding": "Veiligheids- en anti-islandingbeveiliging. Nooit als eindgebruikers-write aanbieden.",
-              "installer_meter_type": "Selecteert de geïnstalleerde energiemeter. Een verkeerde instelling kan stroomrichtingen en metingen ongeldig maken.",
-              "installer_meter_function": "Bepaalt de rol/positie van de meter in de installatie.",
-              "installer_ct_direction": "Bepaalt CT-richting/configuratie; fout instellen kan gemeten vermogensrichting omkeren.",
-              "installer_battery_select": "Selecteert batterij/BMS-profiel. Verkeerd instellen kan batterijcommunicatie verbreken; exact register moet nog gevalideerd worden.",
-              "installer_battery_communication": "CAN/RS485 batterijcommunicatieconfiguratie. Alleen installer.",
-              "installer_battery_parameters": "Elektrische/chemische batterijparameters. Onder controle van installer/fabrikant.",
-              "installer_modbus_address": "Communicatieparameters. Wijzigen kan ervoor zorgen dat Autarco Local de omvormer niet meer bereikt.",
-              "installer_factory_calibration": "Fabriekskalibratie/testwaarden blijven alleen voor diagnose.",
-              "installer_firmware_parameters": "Firmware-/fabrieksinformatie blijft read-only."
-            }
-          },
-          "safety_rules": {
-            "name": "🛡️ Veiligheidsregels",
-            "description": "Actuele SOC-relaties en backend-bescherming voor toekomstige writes. Deze sectie staat standaard open.",
-            "data": {
-              "safety_reserve_soc": "Huidige Reserve-SOC",
-              "safety_minimum_soc": "Huidige Minimum batterij-SOC",
-              "safety_force_charge_soc": "Huidige Force-charge-SOC",
-              "safety_soc_relationship": "Reserve/minimum SOC-regel",
-              "safety_force_relationship": "Force-charge/minimum relatie",
-              "safety_write_status": "Status fysieke writes"
-            },
-            "data_description": {
-              "safety_reserve_soc": "Reserve-SOC mag nooit lager zijn dan Minimum batterij-SOC.",
-              "safety_minimum_soc": "Als Minimum batterij-SOC wordt verhoogd, moet Reserve-SOC gelijk of hoger blijven.",
-              "safety_force_charge_soc": "Lage-SOC beschermingsgrens die samenhangt met geforceerd laden. De toegestane grens wordt nog met de installateur beoordeeld.",
-              "safety_soc_relationship": "Backend-invariant: Reserve-SOC ≥ Minimum batterij-SOC.",
-              "safety_force_relationship": "Alleen informatieve vergelijking in v0.5.2; dit is nog geen afgedwongen write-regel.",
-              "safety_write_status": "v0.5.2 houdt fysieke Modbus-writes geblokkeerd tot na installateursbeoordeling en write-registervalidatie."
-            }
-          }
+        "title": "Instellingenbeveiliging",
+        "description": "Beheer hier alleen de PIN waarmee writes worden ontgrendeld. Omvormerinstellingen bekijk en wijzig je via **Autarco Local → Instellingen**.",
+        "data": {
+          "settings_pin_status": "PIN-status",
+          "settings_new_pin": "Nieuwe PIN",
+          "settings_clear_pin": "PIN verwijderen"
+        },
+        "data_description": {
+          "settings_pin_status": "Laat zien of er een instellingen-PIN is ingesteld.",
+          "settings_new_pin": "Stel de PIN in of vervang hem. Gebruik 4 tot en met 8 cijfers.",
+          "settings_clear_pin": "Verwijder de ingestelde PIN. Writes blijven daarna geblokkeerd totdat opnieuw een PIN is ingesteld."
         }
       }
     }
