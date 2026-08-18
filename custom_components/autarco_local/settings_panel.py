@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6.1"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 _FRONTEND_FILES = (
@@ -22,6 +22,7 @@ _FRONTEND_FILES = (
     "autarco-dashboard-v066-diagnostics.js",
     "autarco-dashboard-v066-data-quality.js",
     "autarco-dashboard-v066-write.js",
+    "autarco-dashboard-v066-ui-state.js",
     "autarco-dashboard-entry.js",
 )
 
