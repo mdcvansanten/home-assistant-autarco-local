@@ -7,7 +7,6 @@ import logging
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 
@@ -36,27 +35,23 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up diagnostic runtime controls."""
     controls = _runtime_controls(hass)
     _set_detailed_logging(bool(controls.get("detailed_logging", False)))
-    async_add_entities([DetailedLoggingSwitch(entry.runtime_data, entry)])
+    async_add_entities([DetailedLoggingSwitch(entry)])
 
 
-class DetailedLoggingSwitch(CoordinatorEntity, SwitchEntity):
+class DetailedLoggingSwitch(SwitchEntity):
     """Temporarily enable verbose Autarco Local debug logging.
 
-    This switch is intentionally runtime-only. After a Home Assistant restart,
-    verbose logging defaults to OFF again so log volume cannot accidentally stay
-    high forever.
+    This control deliberately does not inherit coordinator availability: logging
+    should remain switchable when a previously loaded inverter connection is in
+    trouble. After a Home Assistant restart verbose logging defaults to OFF.
     """
 
     _attr_has_entity_name = True
-    # Keep a stable English slug so the custom panel can resolve the entity even
-    # before switch translations are added. The dashboard itself presents the
-    # control in Dutch.
     _attr_name = "Detailed logging"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:text-box-search-outline"
 
-    def __init__(self, coordinator, entry):
-        super().__init__(coordinator)
+    def __init__(self, entry):
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_detailed_logging"
         self._attr_device_info = DeviceInfo(
