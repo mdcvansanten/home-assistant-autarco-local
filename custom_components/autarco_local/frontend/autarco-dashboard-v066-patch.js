@@ -164,7 +164,11 @@ if (PANEL) {
   };
 
   proto._settings = function settingsWithScenarios() {
-    const html = originalSettings.call(this);
+    let html = originalSettings.call(this);
+    html = html.replace(
+      "Dezelfde groen/geel/rood-indeling als voorheen, nu als tab in Autarco Local. De originele Home Assistant Configureren-route blijft als fallback beschikbaar.",
+      "Alle inverterinstellingen staan hier centraal. Home Assistant → Configureren wordt alleen gebruikt om de instellingen-PIN te beheren."
+    );
     return html.replace("</section>", `${this._scenarioSection()}</section>`);
   };
 
