@@ -12,19 +12,20 @@ from .const import DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_STATIC_URL = "/autarco_local/frontend/autarco-dashboard-panel.js"
-PANEL_BOOTSTRAP_URL = "/autarco_local/frontend/autarco-dashboard-bootstrap.js"
-PANEL_MODULE_URL = f"{PANEL_BOOTSTRAP_URL}?v=0.6.5.2"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
+
+_FRONTEND_FILES = (
+    "autarco-dashboard-panel.js",
+    "autarco-dashboard-bootstrap.js",
+    "autarco-dashboard-v066-patch.js",
+    "autarco-dashboard-v066-write.js",
+    "autarco-dashboard-entry.js",
+)
 
 
 async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> None:
-    """Register the Autarco Local tabbed dashboard once.
-
-    Custom web components must be registered through Home Assistant's
-    ``panel_custom`` API. Registering the component as a built-in panel creates
-    a sidebar route, but the frontend does not instantiate the custom element.
-    """
+    """Register the Autarco Local tabbed dashboard once."""
     state = hass.data.setdefault(
         DATA_PANEL,
         {
@@ -39,15 +40,11 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
         await hass.http.async_register_static_paths(
             [
                 StaticPathConfig(
-                    PANEL_STATIC_URL,
-                    str(frontend_dir / "autarco-dashboard-panel.js"),
+                    f"/autarco_local/frontend/{filename}",
+                    str(frontend_dir / filename),
                     False,
-                ),
-                StaticPathConfig(
-                    PANEL_BOOTSTRAP_URL,
-                    str(frontend_dir / "autarco-dashboard-bootstrap.js"),
-                    False,
-                ),
+                )
+                for filename in _FRONTEND_FILES
             ]
         )
         state["static_registered"] = True
