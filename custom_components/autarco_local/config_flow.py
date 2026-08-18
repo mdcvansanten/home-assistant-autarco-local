@@ -10,7 +10,6 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
 from .const import (
@@ -36,19 +35,6 @@ from .modbus_client import (
     AutarcoConnectionError,
     AutarcoConnectionSettings,
     AutarcoModbusClient,
-    OFF_GRID_MINIMUM_SOC_PILOT_FROM,
-    OFF_GRID_MINIMUM_SOC_PILOT_TO,
-    OFF_GRID_MINIMUM_SOC_REGISTER,
-)
-from .settings import (
-    ACCESS_EXPERT,
-    ACCESS_INSTALLER,
-    ACCESS_STANDARD,
-    AUTARCO_LH_MII_MANUAL_URL,
-    SETTINGS,
-    UNMAPPED_INSTALLER_SETTINGS,
-    SettingValidationError,
-    validate_soc_relationship,
 )
 from .settings_security import (
     CONF_SETTINGS_PIN_HASH,
@@ -56,17 +42,13 @@ from .settings_security import (
     create_pin_credentials,
     pin_is_configured,
     validate_pin_format,
-    verify_pin,
 )
-from .settings_write import async_write_off_grid_minimum_soc
 
 _LOGGER = logging.getLogger(__name__)
 
-SECURITY_SECTION = "settings_security"
 NEW_PIN_FIELD = "settings_new_pin"
 CLEAR_PIN_FIELD = "settings_clear_pin"
 PIN_STATUS_FIELD = "settings_pin_status"
-EXPERT_PIN_FIELD = "expert_write_pin"
 
 
 def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
@@ -150,7 +132,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Create the native Autarco Local Settings Center fallback flow."""
+        """Create the PIN/security options flow."""
         return AutarcoLocalOptionsFlow()
 
     async def async_step_user(
@@ -213,29 +195,11 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class AutarcoLocalOptionsFlow(OptionsFlow):
-    """Provide the native Settings Center plus a PIN-protected write fallback."""
+    """Manage only the Settings PIN.
 
-    def _coordinator(self):
-        return getattr(self.config_entry, "runtime_data", None)
-
-    def _settings_data(self) -> dict[int, int]:
-        coordinator = self._coordinator()
-        return getattr(coordinator, "settings_data", {}) or {}
-
-    def _set_write_diagnostic(self, message: str) -> None:
-        coordinator = self._coordinator()
-        if coordinator is not None:
-            coordinator.settings_last_write_diagnostic = message
-        _LOGGER.warning("Autarco write-diagnose: %s", message)
-
-    def _write_status_text(self) -> str:
-        coordinator = self._coordinator()
-        diagnostic = getattr(coordinator, "settings_last_write_diagnostic", None)
-        security = "PIN ingesteld" if pin_is_configured(self.config_entry) else "PIN nog niet ingesteld"
-        base = f"PILOT — alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar; {security}"
-        if not diagnostic:
-            return f"{base}. Nog geen write-diagnose beschikbaar."
-        return f"{base}. Laatste poging: {diagnostic}"
+    Inverter settings live in the Autarco Local dashboard. Keeping the native
+    Options flow PIN-only prevents two competing write/configuration surfaces.
+    """
 
     @staticmethod
     def _readonly_text() -> selector.TextSelector:
@@ -245,30 +209,11 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
     def _password_text() -> selector.TextSelector:
         return selector.TextSelector(selector.TextSelectorConfig(type="password"))
 
-    @staticmethod
-    def _off_grid_soc_number() -> selector.NumberSelector:
-        return selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=10,
-                max=100,
-                step=1,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="%",
-            )
-        )
-
-    def _format_setting(self, description) -> str:
-        value = description.value_fn(self._settings_data())
-        if value is None:
-            return "Unavailable"
-        unit = description.native_unit_of_measurement
-        return f"{value} {unit}" if unit else str(value)
-
     def _security_schema(self) -> vol.Schema:
         status = (
-            "PIN ingesteld — writes kunnen na ontgrendeling worden uitgevoerd"
+            "PIN ingesteld — ontgrendelen kan vanuit Autarco Local → Instellingen"
             if pin_is_configured(self.config_entry)
-            else "Nog geen PIN ingesteld — writes blijven geblokkeerd"
+            else "Nog geen PIN ingesteld — alle writes blijven geblokkeerd"
         )
         return vol.Schema(
             {
@@ -278,148 +223,24 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             }
         )
 
-    def _schema_for_access_level(
-        self,
-        access_level: str,
-        *,
-        enable_off_grid_soc_pilot: bool = False,
-    ) -> vol.Schema:
-        fields: dict[Any, Any] = {}
-        for description in SETTINGS:
-            if description.access_level != access_level:
-                continue
-
-            if (
-                enable_off_grid_soc_pilot
-                and description.key == "setting_off_grid_overdischarge_soc"
-            ):
-                current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
-                fields[
-                    vol.Optional(
-                        description.key,
-                        default=(
-                            int(current)
-                            if current is not None
-                            else OFF_GRID_MINIMUM_SOC_PILOT_FROM
-                        ),
-                    )
-                ] = self._off_grid_soc_number()
-                continue
-
-            fields[
-                vol.Optional(description.key, default=self._format_setting(description))
-            ] = self._readonly_text()
-
-        if access_level == ACCESS_EXPERT and enable_off_grid_soc_pilot:
-            fields[vol.Optional(EXPERT_PIN_FIELD, default="")] = self._password_text()
-        return vol.Schema(fields)
-
-    def _installer_schema(self) -> vol.Schema:
-        fields = dict(self._schema_for_access_level(ACCESS_INSTALLER).schema)
-        for key in UNMAPPED_INSTALLER_SETTINGS:
-            fields[vol.Optional(key, default="Not mapped yet — read-only")] = self._readonly_text()
-        return vol.Schema(fields)
-
-    def _safety_schema(self) -> vol.Schema:
-        data = self._settings_data()
-        reserve_soc = data.get(43024)
-        minimum_soc = data.get(43011)
-        force_charge_soc = data.get(43018)
-        off_grid_minimum_soc = data.get(OFF_GRID_MINIMUM_SOC_REGISTER)
-
-        reserve_relationship = "Unavailable"
-        if reserve_soc is not None and minimum_soc is not None:
-            try:
-                validate_soc_relationship(reserve_soc, minimum_soc)
-            except SettingValidationError:
-                reserve_relationship = "INVALID — Reserve SOC is below Minimum battery SOC"
-            else:
-                reserve_relationship = f"OK — {reserve_soc}% >= {minimum_soc}%"
-
-        force_relationship = "Unavailable"
-        if force_charge_soc is not None and minimum_soc is not None:
-            force_relationship = (
-                f"{force_charge_soc}% < {minimum_soc}%"
-                if force_charge_soc < minimum_soc
-                else f"CHECK — {force_charge_soc}% >= {minimum_soc}%"
-            )
-
-        def pct(value: int | None) -> str:
-            return f"{value}%" if value is not None else "Unavailable"
-
-        return vol.Schema(
-            {
-                vol.Optional("safety_reserve_soc", default=pct(reserve_soc)): self._readonly_text(),
-                vol.Optional("safety_minimum_soc", default=pct(minimum_soc)): self._readonly_text(),
-                vol.Optional("safety_force_charge_soc", default=pct(force_charge_soc)): self._readonly_text(),
-                vol.Optional("safety_off_grid_minimum_soc", default=pct(off_grid_minimum_soc)): self._readonly_text(),
-                vol.Optional("safety_soc_relationship", default=reserve_relationship): self._readonly_text(),
-                vol.Optional("safety_force_relationship", default=force_relationship): self._readonly_text(),
-                vol.Optional(
-                    "safety_off_grid_review",
-                    default=(
-                        f"Current {off_grid_minimum_soc}% — write pilot target 20%"
-                        if off_grid_minimum_soc is not None
-                        else "Unavailable"
-                    ),
-                ): self._readonly_text(),
-                vol.Optional("safety_write_status", default=self._write_status_text()): self._readonly_text(),
-            }
-        )
-
-    def _settings_center_schema(self) -> vol.Schema:
-        return vol.Schema(
-            {
-                vol.Required(SECURITY_SECTION): section(
-                    self._security_schema(),
-                    {"collapsed": False},
-                ),
-                vol.Required("standard_settings"): section(
-                    self._schema_for_access_level(ACCESS_STANDARD),
-                    {"collapsed": False},
-                ),
-                vol.Required("expert_settings"): section(
-                    self._schema_for_access_level(
-                        ACCESS_EXPERT,
-                        enable_off_grid_soc_pilot=True,
-                    ),
-                    {"collapsed": False},
-                ),
-                vol.Required("installer_settings"): section(
-                    self._installer_schema(),
-                    {"collapsed": True},
-                ),
-                vol.Required("safety_rules"): section(
-                    self._safety_schema(),
-                    {"collapsed": False},
-                ),
-            }
-        )
-
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Show settings and support the guarded PIN-protected 10-to-20 pilot."""
+        """Set, replace or remove the PIN; never write inverter settings here."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             options = dict(self.config_entry.options)
-            security_data = user_input.get(SECURITY_SECTION, {}) or {}
-            new_pin = str(security_data.get(NEW_PIN_FIELD, "")).strip()
-            clear_pin = bool(security_data.get(CLEAR_PIN_FIELD, False))
-            security_changed = bool(new_pin or clear_pin)
+            new_pin = str(user_input.get(NEW_PIN_FIELD, "")).strip()
+            clear_pin = bool(user_input.get(CLEAR_PIN_FIELD, False))
 
             if new_pin and clear_pin:
-                errors["base"] = "unknown"
-                self._set_write_diagnostic(
-                    "AFGEBROKEN — kies óf een nieuwe PIN óf PIN verwijderen, niet beide"
-                )
+                errors["base"] = "pin_conflict"
             elif new_pin:
                 try:
                     normalized_pin = validate_pin_format(new_pin)
-                except ValueError as err:
-                    errors["base"] = "unknown"
-                    self._set_write_diagnostic(f"AFGEBROKEN — {err}")
+                except ValueError:
+                    errors["base"] = "invalid_pin"
                 else:
                     salt, digest = create_pin_credentials(normalized_pin)
                     options[CONF_SETTINGS_PIN_SALT] = salt
@@ -428,81 +249,11 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                 options.pop(CONF_SETTINGS_PIN_SALT, None)
                 options.pop(CONF_SETTINGS_PIN_HASH, None)
 
-            coordinator = self._coordinator()
-            current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
-            expert_data = user_input.get("expert_settings", {}) or {}
-            requested_raw = expert_data.get(
-                "setting_off_grid_overdischarge_soc",
-                current,
-            )
-            expert_pin = str(expert_data.get(EXPERT_PIN_FIELD, "")).strip()
-
-            try:
-                requested = int(requested_raw) if requested_raw is not None else None
-            except (TypeError, ValueError):
-                requested = None
-
-            write_requested = (
-                requested is not None
-                and current is not None
-                and int(requested) != int(current)
-            )
-
-            if not errors and write_requested:
-                if security_changed:
-                    self._set_write_diagnostic(
-                        "AFGEBROKEN — sla een gewijzigde PIN eerst apart op en open Configureren daarna opnieuw"
-                    )
-                    errors["base"] = "unknown"
-                elif not pin_is_configured(self.config_entry):
-                    self._set_write_diagnostic(
-                        "AFGEBROKEN — stel eerst bovenaan een instellingen-PIN in"
-                    )
-                    errors["base"] = "unknown"
-                elif not expert_pin or not verify_pin(self.config_entry, expert_pin):
-                    self._set_write_diagnostic(
-                        "AFGEBROKEN — onjuiste of ontbrekende instellingen-PIN voor Expert-write"
-                    )
-                    errors["base"] = "unknown"
-                elif current != OFF_GRID_MINIMUM_SOC_PILOT_FROM or requested != OFF_GRID_MINIMUM_SOC_PILOT_TO:
-                    self._set_write_diagnostic(
-                        f"GEWEIGERD — actueel={current}%, aangevraagd={requested}%; alleen 10% -> 20% is toegestaan"
-                    )
-                    errors["base"] = "unknown"
-                elif coordinator is None:
-                    self._set_write_diagnostic(
-                        "AFGEBROKEN — Home Assistant coordinator ontbreekt"
-                    )
-                    errors["base"] = "unknown"
-                else:
-                    try:
-                        await async_write_off_grid_minimum_soc(
-                            self.hass,
-                            coordinator,
-                            requested,
-                        )
-                    except Exception as err:
-                        _LOGGER.exception(
-                            "Fout tijdens PIN-beveiligde native Off-grid SOC write"
-                        )
-                        self._set_write_diagnostic(
-                            f"MISLUKT — {type(err).__name__}: {err}"
-                        )
-                        errors["base"] = "unknown"
-                    else:
-                        return self.async_create_entry(data=options)
-
-            if not errors and not write_requested:
+            if not errors:
                 return self.async_create_entry(data=options)
 
         return self.async_show_form(
             step_id="init",
-            data_schema=self._settings_center_schema(),
+            data_schema=self._security_schema(),
             errors=errors,
-            description_placeholders={
-                "write_status": (
-                    "PILOT: Off-grid minimum SOC 10% -> 20% via PIN-beveiligde dependency-aware transactie"
-                ),
-                "docs_url": AUTARCO_LH_MII_MANUAL_URL,
-            },
         )
