@@ -19,6 +19,7 @@ _FRONTEND_FILES = (
     "autarco-dashboard-panel.js",
     "autarco-dashboard-bootstrap.js",
     "autarco-dashboard-v066-patch.js",
+    "autarco-dashboard-v066-diagnostics.js",
     "autarco-dashboard-v066-write.js",
     "autarco-dashboard-entry.js",
 )
