@@ -38,133 +38,23 @@
     }
   },
   "options": {
+    "error": {
+      "pin_conflict": "Choose either a new PIN or remove the PIN, not both.",
+      "invalid_pin": "Enter a valid PIN of 4 to 8 digits."
+    },
     "step": {
       "init": {
-        "title": "Settings Center",
-        "description": "Live inverter settings on one page. Physical Modbus writes are currently **{write_status}**. [Autarco LH-MII documentation]({docs_url})",
-        "sections": {
-          "standard_settings": {
-            "name": "🟢 Standard settings",
-            "description": "Normal end-user settings. This section opens by default.",
-            "data": {
-              "setting_reserve_soc": "Reserve SOC",
-              "setting_self_use_mode": "Self-use mode",
-              "setting_time_of_use_mode": "Time-of-use mode",
-              "setting_reserve_battery_mode": "Reserve battery mode",
-              "setting_feed_in_priority_mode": "Feed-in priority mode",
-              "setting_charge_start_1": "Charge slot 1 start",
-              "setting_charge_end_1": "Charge slot 1 end",
-              "setting_discharge_start_1": "Discharge slot 1 start",
-              "setting_discharge_end_1": "Discharge slot 1 end",
-              "setting_charge_start_2": "Charge slot 2 start",
-              "setting_charge_end_2": "Charge slot 2 end",
-              "setting_discharge_start_2": "Discharge slot 2 start",
-              "setting_discharge_end_2": "Discharge slot 2 end",
-              "setting_charge_start_3": "Charge slot 3 start",
-              "setting_charge_end_3": "Charge slot 3 end",
-              "setting_discharge_start_3": "Discharge slot 3 start",
-              "setting_discharge_end_3": "Discharge slot 3 end"
-            },
-            "data_description": {
-              "setting_reserve_soc": "Battery reserve target. Future writes will always enforce Reserve SOC ≥ Minimum battery SOC.",
-              "setting_self_use_mode": "Uses PV first for the home and battery before exporting surplus energy.",
-              "setting_time_of_use_mode": "Enables scheduled charge/discharge behavior using the configured time slots.",
-              "setting_reserve_battery_mode": "Enables use of the configured Reserve SOC as a battery reserve behavior.",
-              "setting_feed_in_priority_mode": "Changes the operating priority toward grid feed-in where supported.",
-              "setting_charge_start_1": "Start of charge period 1.",
-              "setting_charge_end_1": "End of charge period 1.",
-              "setting_discharge_start_1": "Start of discharge period 1.",
-              "setting_discharge_end_1": "End of discharge period 1.",
-              "setting_charge_start_2": "Start of charge period 2.",
-              "setting_charge_end_2": "End of charge period 2.",
-              "setting_discharge_start_2": "Start of discharge period 2.",
-              "setting_discharge_end_2": "End of discharge period 2.",
-              "setting_charge_start_3": "Start of charge period 3.",
-              "setting_charge_end_3": "End of charge period 3.",
-              "setting_discharge_start_3": "Start of discharge period 3.",
-              "setting_discharge_end_3": "End of discharge period 3."
-            }
-          },
-          "expert_settings": {
-            "name": "🟡 Expert settings",
-            "description": "Advanced battery and operating settings. Collapsed by default; future writes require validation and confirmation.",
-            "data": {
-              "setting_overdischarge_soc": "Minimum battery SOC",
-              "setting_force_charge_soc": "Force-charge SOC",
-              "setting_force_charge_power_limit": "Force-charge power limit",
-              "setting_off_grid_mode": "Off-grid mode",
-              "setting_allow_grid_charge": "Allow grid charging",
-              "setting_off_grid_overdischarge_soc": "Off-grid minimum SOC",
-              "setting_time_charge_current": "Scheduled charge current",
-              "setting_time_discharge_current": "Scheduled discharge current"
-            },
-            "data_description": {
-              "setting_overdischarge_soc": "Normal lower SOC limit for battery discharge. Raising it keeps more reserve; lowering it increases usable capacity.",
-              "setting_force_charge_soc": "Low-SOC protection threshold associated with forced charging behavior. This is the 10% threshold currently relevant to the night-time grid-charge investigation.",
-              "setting_force_charge_power_limit": "Power limit used for force-charge behavior. Incorrect values can change how aggressively the battery is recovered.",
-              "setting_off_grid_mode": "Controls off-grid operation. Only use on an installation that is electrically suitable for off-grid operation and its physical switching arrangement.",
-              "setting_allow_grid_charge": "Allows charging from the electricity grid where the active operating mode permits it.",
-              "setting_off_grid_overdischarge_soc": "Minimum SOC used during off-grid operation. Higher values keep more emergency reserve.",
-              "setting_time_charge_current": "Battery charge current used by scheduled Time-of-Use operation.",
-              "setting_time_discharge_current": "Battery discharge current used by scheduled Time-of-Use operation."
-            }
-          },
-          "installer_settings": {
-            "name": "🔴 Installer / system settings",
-            "description": "Visible for diagnosis and installer review, but read-only. Unmapped items stay deliberately unmapped instead of guessing a register.",
-            "data": {
-              "setting_overcharge_soc": "Overcharge SOC",
-              "installer_grid_standard": "Grid standard / grid code",
-              "installer_grid_voltage_limits": "Grid voltage protection limits",
-              "installer_grid_frequency_limits": "Grid frequency protection limits",
-              "installer_anti_islanding": "Anti-islanding / grid protection",
-              "installer_meter_type": "Meter type",
-              "installer_meter_function": "Meter function / position",
-              "installer_ct_direction": "CT direction / configuration",
-              "installer_battery_select": "Battery Select / battery type",
-              "installer_battery_communication": "Battery communication type",
-              "installer_battery_parameters": "Battery chemistry / voltage parameters",
-              "installer_modbus_address": "Modbus address / communication parameters",
-              "installer_factory_calibration": "Factory / calibration / test settings",
-              "installer_firmware_parameters": "Firmware / factory parameters"
-            },
-            "data_description": {
-              "setting_overcharge_soc": "Battery upper SOC protection setting. Kept installer/read-only.",
-              "installer_grid_standard": "Grid-code selection must match the local grid requirements and installation approval.",
-              "installer_grid_voltage_limits": "Protection thresholds for grid voltage. Installer/system only.",
-              "installer_grid_frequency_limits": "Protection thresholds for grid frequency. Installer/system only.",
-              "installer_anti_islanding": "Safety and anti-islanding protection. Never exposed as an end-user write.",
-              "installer_meter_type": "Selects the installed energy meter hardware. Wrong settings can invalidate power-flow measurements.",
-              "installer_meter_function": "Defines the meter role/position in the installation.",
-              "installer_ct_direction": "Defines current-transformer direction/configuration and can invert measured power flow if wrong.",
-              "installer_battery_select": "Selects the supported battery/BMS profile. Wrong selection can break battery communication; exact register still needs validation.",
-              "installer_battery_communication": "Battery CAN/RS485 communication configuration. Installer only.",
-              "installer_battery_parameters": "Battery electrical/chemistry parameters. Installer/manufacturer controlled.",
-              "installer_modbus_address": "Communication parameters. Changing these can make Autarco Local lose access to the inverter.",
-              "installer_factory_calibration": "Factory calibration/test values are diagnosis-only.",
-              "installer_firmware_parameters": "Firmware/factory information remains read-only."
-            }
-          },
-          "safety_rules": {
-            "name": "🛡️ Safety rules",
-            "description": "Current SOC relationships and backend write protection. This section opens by default.",
-            "data": {
-              "safety_reserve_soc": "Current Reserve SOC",
-              "safety_minimum_soc": "Current Minimum battery SOC",
-              "safety_force_charge_soc": "Current Force-charge SOC",
-              "safety_soc_relationship": "Reserve/minimum SOC rule",
-              "safety_force_relationship": "Force-charge/minimum relationship",
-              "safety_write_status": "Physical write status"
-            },
-            "data_description": {
-              "safety_reserve_soc": "Reserve SOC may never be lower than Minimum battery SOC.",
-              "safety_minimum_soc": "If Minimum battery SOC is raised, Reserve SOC must remain equal to or above it.",
-              "safety_force_charge_soc": "Low-SOC protection threshold associated with forced charging. The allowed range remains subject to installer review.",
-              "safety_soc_relationship": "Backend invariant: Reserve SOC ≥ Minimum battery SOC.",
-              "safety_force_relationship": "Informational comparison only in v0.5.2; it is not yet enforced as a write rule.",
-              "safety_write_status": "v0.5.2 keeps physical Modbus writes locked pending installer review and write-register validation."
-            }
-          }
+        "title": "Settings security",
+        "description": "Manage only the PIN used to unlock writes. Inverter settings are viewed and changed in **Autarco Local → Settings**.",
+        "data": {
+          "settings_pin_status": "PIN status",
+          "settings_new_pin": "New PIN",
+          "settings_clear_pin": "Remove PIN"
+        },
+        "data_description": {
+          "settings_pin_status": "Shows whether a Settings PIN is configured.",
+          "settings_new_pin": "Set or replace the PIN. Use 4 to 8 digits.",
+          "settings_clear_pin": "Remove the configured PIN. Writes will remain locked until a new PIN is set."
         }
       }
     }
