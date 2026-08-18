@@ -23,7 +23,9 @@ from .settings_security import (
 from .settings_write_v066 import (
     OFF_GRID_MINIMUM_SOC_MAX,
     OFF_GRID_MINIMUM_SOC_MIN,
-    async_write_off_grid_minimum_soc_v066,
+)
+from .settings_write_v066_final_verify import (
+    async_write_off_grid_minimum_soc_v066_final,
 )
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
@@ -147,7 +149,7 @@ async def _async_handle_set_off_grid_minimum_soc(
         raise HomeAssistantError(
             "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
         )
-    await async_write_off_grid_minimum_soc_v066(
+    await async_write_off_grid_minimum_soc_v066_final(
         hass,
         coordinator,
         int(call.data["soc"]),
