@@ -1,12 +1,24 @@
 // v0.6.6 UI-state preservation for live Home Assistant updates.
-// The panel re-renders whenever HA states change. Preserve user-controlled UI
-// state so live telemetry cannot collapse menus or clear in-progress form input.
+//
+// Normal dashboard cards may refresh with Home Assistant telemetry. Interactive
+// dialogs are different: while a PIN or Expert preflight dialog is open, a
+// telemetry update must not rebuild the dialog DOM underneath the user. That
+// caused fields, scroll position and the modal itself to jump every few seconds.
+//
+// Explicit user actions still call render() themselves, so validation,
+// busy/error/success states continue to update normally.
 
 const PANEL_UI_STATE_V066 = customElements.get("autarco-local-dashboard-panel");
 
 if (PANEL_UI_STATE_V066) {
   const proto = PANEL_UI_STATE_V066.prototype;
   const previousRender = proto.render;
+  const previousConnectedCallback = proto.connectedCallback;
+  const hassDescriptor = Object.getOwnPropertyDescriptor(proto, "hass");
+
+  function dialogOpen(instance) {
+    return Boolean(instance && (instance._unlockOpen || instance._preflightOpen));
+  }
 
   function detailsKey(details) {
     const explicit = details.getAttribute("data-state-key");
@@ -19,9 +31,54 @@ if (PANEL_UI_STATE_V066) {
     return input.id || input.name || null;
   }
 
+  // Home Assistant assigns a new hass object for every state update. Keep the
+  // latest object available to the backend/UI, but do not rebuild an open
+  // interactive dialog just because telemetry changed in the background.
+  if (hassDescriptor && hassDescriptor.set) {
+    Object.defineProperty(proto, "hass", {
+      configurable: true,
+      enumerable: hassDescriptor.enumerable,
+      get: hassDescriptor.get,
+      set(value) {
+        this._hass = value;
+        if (!dialogOpen(this)) {
+          this.render();
+        }
+      },
+    });
+  }
+
+  // The base panel updates the 10-minute unlock countdown every five seconds by
+  // re-rendering. Replace that timer with a modal-aware variant so an open
+  // preflight/PIN dialog remains physically stationary while the countdown
+  // continues in memory.
+  proto.connectedCallback = function connectedWithStableDialogs() {
+    if (previousConnectedCallback) {
+      previousConnectedCallback.call(this);
+    }
+
+    if (this._timer) {
+      window.clearInterval(this._timer);
+    }
+
+    this._timer = window.setInterval(() => {
+      if (this._activeTab !== "settings" || this._unlockedUntil <= 0) return;
+
+      const expired = Date.now() >= this._unlockedUntil;
+      if (expired) {
+        this._unlockedUntil = 0;
+      }
+
+      if (!dialogOpen(this)) {
+        this.render();
+      }
+    }, 5000);
+  };
+
   proto.render = function renderWithPersistentUiState() {
     const openState = new Map();
     const inputState = new Map();
+    const scrollState = new Map();
     let focusState = null;
 
     if (this.shadowRoot) {
@@ -38,6 +95,21 @@ if (PANEL_UI_STATE_V066) {
           checked: input.checked,
           type: input.type,
         });
+      });
+
+      // Preserve local scroll containers as a defensive fallback for explicit
+      // renders (validation/busy/error/success). Ordinary telemetry renders are
+      // suppressed entirely while a dialog is open.
+      [
+        ["backdrop", this.shadowRoot.querySelector(".backdrop")],
+        ["dialog", this.shadowRoot.querySelector(".dialog")],
+      ].forEach(([key, element]) => {
+        if (element) {
+          scrollState.set(key, {
+            top: element.scrollTop,
+            left: element.scrollLeft,
+          });
+        }
       });
 
       const active = this.shadowRoot.activeElement;
@@ -77,6 +149,23 @@ if (PANEL_UI_STATE_V066) {
           input.value = state.value;
         }
       });
+    }
+
+    if (scrollState.has("backdrop")) {
+      const backdrop = this.shadowRoot.querySelector(".backdrop");
+      const state = scrollState.get("backdrop");
+      if (backdrop) {
+        backdrop.scrollTop = state.top;
+        backdrop.scrollLeft = state.left;
+      }
+    }
+    if (scrollState.has("dialog")) {
+      const dialog = this.shadowRoot.querySelector(".dialog");
+      const state = scrollState.get("dialog");
+      if (dialog) {
+        dialog.scrollTop = state.top;
+        dialog.scrollLeft = state.left;
+      }
     }
 
     if (focusState) {
