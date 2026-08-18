@@ -29,9 +29,12 @@ Belangrijk uitgangspunt: een setting wordt niet als een los register behandeld. 
 
 Voorbeeld: Off-grid minimum SOC is op de huidige hardware alleen wijzigbaar wanneer Off-grid actief is. Als Off-grid al actief was, blijft het actief. Alleen wanneer de integratie een mode zelf tijdelijk heeft gewijzigd, mag zij die na afloop herstellen.
 
+In v0.6.4 krijgt de beperkte `10% → 20%` hardwarepilot hiervoor een begeleide preflight in het Settings Center. De gebruiker ziet vóór bevestiging de actuele relevante settings, de dependency, de geplande transactie en de verwachte eindtoestand.
+
 Lees:
 
 - **[`docs/settings-decision-tree.md`](docs/settings-decision-tree.md)** — volledige Autarco-beslisboom, dependency-matrix en expert-preflight;
+- **[`docs/setting-dependency-research.md`](docs/setting-dependency-research.md)** — aanvullend officieel dependency-onderzoek voor nog niet of deels gemapte settings;
 - **[`docs/write-dependencies.md`](docs/write-dependencies.md)** — state-preservation en transactionregels;
 - **[`docs/settings.md`](docs/settings.md)** — huidige registermapping en validatiegegevens.
 
@@ -89,6 +92,7 @@ Aanbevolen verbindingsinstellingen voor de huidige testopstelling:
 
 - [Roadmap](docs/roadmap.md)
 - [Settings decision tree](docs/settings-decision-tree.md)
+- [Setting dependency research](docs/setting-dependency-research.md)
 - [Write dependencies](docs/write-dependencies.md)
 - [Settings/register map](docs/settings.md)
 
