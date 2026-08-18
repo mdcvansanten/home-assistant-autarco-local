@@ -13,7 +13,8 @@ from .const import DOMAIN
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
 PANEL_STATIC_URL = "/autarco_local/frontend/autarco-dashboard-panel.js"
-PANEL_MODULE_URL = f"{PANEL_STATIC_URL}?v=0.6.5.1"
+PANEL_BOOTSTRAP_URL = "/autarco_local/frontend/autarco-dashboard-bootstrap.js"
+PANEL_MODULE_URL = f"{PANEL_BOOTSTRAP_URL}?v=0.6.5.2"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 
@@ -34,9 +35,20 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
     state["entries"].add(entry_id)
 
     if not state["static_registered"]:
-        frontend_path = Path(__file__).parent / "frontend" / "autarco-dashboard-panel.js"
+        frontend_dir = Path(__file__).parent / "frontend"
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(PANEL_STATIC_URL, str(frontend_path), False)]
+            [
+                StaticPathConfig(
+                    PANEL_STATIC_URL,
+                    str(frontend_dir / "autarco-dashboard-panel.js"),
+                    False,
+                ),
+                StaticPathConfig(
+                    PANEL_BOOTSTRAP_URL,
+                    str(frontend_dir / "autarco-dashboard-bootstrap.js"),
+                    False,
+                ),
+            ]
         )
         state["static_registered"] = True
 
