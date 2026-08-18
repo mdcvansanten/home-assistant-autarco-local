@@ -1,0 +1,37 @@
+set_off_grid_minimum_soc:
+  name: Set Off-grid minimum SOC (pilot)
+  description: >-
+    Guarded hardware pilot for changing Off-grid minimum SOC from 10% to 20%.
+    If Off-grid is already active it remains active. If Autarco Local must
+    temporarily activate Off-grid, the original complete work-mode state is
+    restored and verified afterwards.
+  fields:
+    soc:
+      name: Target SOC
+      description: The only target allowed by this hardware pilot is 20%.
+      required: true
+      example: 20
+      selector:
+        number:
+          min: 20
+          max: 20
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    confirm:
+      name: Confirm expert write
+      description: >-
+        Explicit confirmation that this expert write may temporarily activate
+        Off-grid when it was not already active.
+      required: true
+      example: true
+      selector:
+        boolean:
+    config_entry_id:
+      name: Config entry ID
+      description: >-
+        Optional. Required only when more than one Autarco Local config entry is
+        loaded.
+      required: false
+      selector:
+        text:
