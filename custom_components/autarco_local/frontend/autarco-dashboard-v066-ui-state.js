@@ -4,13 +4,12 @@
 // dialogs are different: while a PIN or Expert preflight dialog is open, a
 // telemetry update must not rebuild the dialog DOM underneath the user.
 //
-// Important: Home Assistant may instantiate the custom element immediately when
-// the bootstrap calls customElements.define(), before this final patch module has
-// been evaluated. Therefore an old base 5-second timer may already be running.
-// This patch replaces that timer lazily from the hass setter as well, making the
-// fix effective for already-connected panel instances.
+// Home Assistant can keep an already-instantiated custom panel alive across
+// frontend module/cache refreshes. Therefore timer ownership is versioned: a
+// newer frontend patch ALWAYS replaces a timer installed by an older patch.
 
 const PANEL_UI_STATE_V066 = customElements.get("autarco-local-dashboard-panel");
+const STABLE_TIMER_VERSION = "0.6.6.5";
 
 if (PANEL_UI_STATE_V066) {
   const proto = PANEL_UI_STATE_V066.prototype;
@@ -33,10 +32,14 @@ if (PANEL_UI_STATE_V066) {
   }
 
   function installStableTimer(instance) {
-    if (!instance || instance._autarcoStableTimerInstalled) return;
+    if (!instance) return;
 
-    // A base timer may already exist because the element can be connected before
-    // this patch module is evaluated. Always replace it once.
+    // Never trust a boolean marker from an older hot-loaded frontend patch.
+    // Only the exact current version is allowed to keep its timer.
+    if (instance._autarcoStableTimerVersion === STABLE_TIMER_VERSION && instance._timer) {
+      return;
+    }
+
     if (instance._timer) {
       window.clearInterval(instance._timer);
       instance._timer = null;
@@ -47,21 +50,87 @@ if (PANEL_UI_STATE_V066) {
 
       if (Date.now() >= instance._unlockedUntil) {
         instance._unlockedUntil = 0;
-        // An expired unlock invalidates the preflight. Closing it is deliberate,
-        // not a telemetry refresh.
+        // Expiry is a deliberate security transition. Close interactive dialogs
+        // and render the locked state once.
         instance._preflightOpen = false;
         instance._unlockOpen = false;
+        instance._preflightConfirmed = false;
         instance.render();
         return;
       }
 
-      // Refresh the visible countdown only when no interactive dialog is open.
+      // The countdown may refresh only when no interactive dialog is open.
       if (!dialogOpen(instance)) {
         instance.render();
       }
     }, 5000);
 
-    instance._autarcoStableTimerInstalled = true;
+    instance._autarcoStableTimerVersion = STABLE_TIMER_VERSION;
+    // Clean up the old boolean marker used by earlier v0.6.6 patches.
+    instance._autarcoStableTimerInstalled = undefined;
+  }
+
+  function syncPreflightControls(instance) {
+    if (!instance || !instance.shadowRoot) return;
+    const targetInput = instance.shadowRoot.querySelector("#off-grid-target");
+    const confirmCheckbox = instance.shadowRoot.querySelector("#confirm-write");
+    const confirmButton = instance.shadowRoot.querySelector('[data-action="confirm-write"]');
+    if (!targetInput || !confirmCheckbox || !confirmButton) return;
+
+    const value = Number(targetInput.value);
+    const current = instance._number("off_grid_minimum_soc");
+    const valid = Number.isInteger(value) && value >= 10 && value <= 100 && value !== current;
+
+    // Keep confirmation as component state as well as DOM state. This removes
+    // the final dependency on whether a browser/HA render recreated the checkbox.
+    if (instance._preflightConfirmed == null) {
+      instance._preflightConfirmed = Boolean(confirmCheckbox.checked);
+    }
+    confirmCheckbox.checked = Boolean(instance._preflightConfirmed);
+    confirmCheckbox.disabled = !valid || instance._writeBusy;
+    confirmButton.disabled =
+      !valid ||
+      !instance._preflightConfirmed ||
+      instance._writeBusy ||
+      !instance._isUnlocked();
+  }
+
+  function bindPersistentPreflightState(instance) {
+    if (!instance || !instance.shadowRoot) return;
+    const targetInput = instance.shadowRoot.querySelector("#off-grid-target");
+    const confirmCheckbox = instance.shadowRoot.querySelector("#confirm-write");
+    if (targetInput && !targetInput.dataset.autarcoPersistentBound) {
+      targetInput.dataset.autarcoPersistentBound = "1";
+      const updateTarget = () => {
+        instance._offGridTarget = Number(targetInput.value);
+        syncPreflightControls(instance);
+      };
+      targetInput.addEventListener("input", updateTarget);
+      targetInput.addEventListener("change", updateTarget);
+    }
+    if (confirmCheckbox && !confirmCheckbox.dataset.autarcoPersistentBound) {
+      confirmCheckbox.dataset.autarcoPersistentBound = "1";
+      confirmCheckbox.addEventListener("change", () => {
+        instance._preflightConfirmed = Boolean(confirmCheckbox.checked);
+        syncPreflightControls(instance);
+      });
+    }
+    syncPreflightControls(instance);
+  }
+
+  function focusUnlockPin(instance) {
+    if (!instance || !instance._unlockOpen || !instance.shadowRoot) return;
+    const pin = instance.shadowRoot.querySelector("#unlock-pin");
+    if (!pin) return;
+    // Do not steal focus while the user is already interacting with another
+    // field, but focus immediately on first opening the unlock dialog.
+    const active = instance.shadowRoot.activeElement;
+    if (!active || active === instance.shadowRoot) {
+      window.requestAnimationFrame(() => {
+        const current = instance.shadowRoot && instance.shadowRoot.querySelector("#unlock-pin");
+        if (current) current.focus({ preventScroll: true });
+      });
+    }
   }
 
   // Home Assistant assigns a new hass object for every state update. Keep the
@@ -88,8 +157,6 @@ if (PANEL_UI_STATE_V066) {
     if (previousConnectedCallback) {
       previousConnectedCallback.call(this);
     }
-    // previousConnectedCallback may have created the base timer; replace it.
-    this._autarcoStableTimerInstalled = false;
     installStableTimer(this);
   };
 
@@ -137,6 +204,11 @@ if (PANEL_UI_STATE_V066) {
             end: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
           };
         }
+      }
+
+      const existingCheckbox = this.shadowRoot.querySelector("#confirm-write");
+      if (existingCheckbox) {
+        this._preflightConfirmed = Boolean(existingCheckbox.checked);
       }
     }
 
@@ -199,20 +271,10 @@ if (PANEL_UI_STATE_V066) {
           }
         }
       }
+    } else {
+      focusUnlockPin(this);
     }
 
-    // Defensive consistency check for explicit renders while the Expert dialog
-    // is open. Restoring a checked checkbox must also restore the enabled state
-    // of the confirmation button.
-    const targetInput = this.shadowRoot.querySelector("#off-grid-target");
-    const confirmCheckbox = this.shadowRoot.querySelector("#confirm-write");
-    const confirmButton = this.shadowRoot.querySelector('[data-action="confirm-write"]');
-    if (targetInput && confirmCheckbox && confirmButton) {
-      const value = Number(targetInput.value);
-      const current = this._number("off_grid_minimum_soc");
-      const valid = Number.isInteger(value) && value >= 10 && value <= 100 && value !== current;
-      confirmCheckbox.disabled = !valid || this._writeBusy;
-      confirmButton.disabled = !valid || !confirmCheckbox.checked || this._writeBusy;
-    }
+    bindPersistentPreflightState(this);
   };
 }
