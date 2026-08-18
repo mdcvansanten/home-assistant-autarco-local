@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.6.4
+
+- Added a guided Expert preflight in the custom Settings Center for the single hardware-validated Off-grid minimum SOC pilot (`10% -> 20%`).
+- The preflight shows current Self-use, Off-grid, Minimum SOC, Force-charge SOC, grid-charging status and battery SOC before confirmation.
+- Added a Home Assistant service `autarco_local.set_off_grid_minimum_soc` with explicit confirmation and the same narrow `10% -> 20%` guard.
+- The service performs a fresh settings read before the write and uses the dependency-aware v0.6.3 transaction engine.
+- If Off-grid is already active, the service leaves it active. If it is inactive, temporary activation is permitted only when battery SOC is available and at least 30% for this pilot.
+- The complete original work-mode state is restored only when Autarco Local temporarily changed it; read-back and conflict detection remain mandatory.
+- The Settings Center now shows documented dependency guidance for mapped Standard and Expert settings.
+- Added a dependency overview for work modes, Time of Use, Battery Reserve, Force-charge, Peak-Shaving and meter/CT prerequisites.
+- Added `docs/setting-dependency-research.md` with additional official Solis dependency research covering export limits, Battery Healing, ECO, Smart Port, AC coupling, generator and advanced settings.
+- Force-charge power limit remains locked because the current register/scaling mapping is not yet proven.
+- No additional setting register has been made writable.
+
 ## 0.6.3
 
 - Added dependency-aware setting metadata for parent-mode requirements.
