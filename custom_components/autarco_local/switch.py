@@ -48,7 +48,10 @@ class DetailedLoggingSwitch(CoordinatorEntity, SwitchEntity):
     """
 
     _attr_has_entity_name = True
-    _attr_name = "Uitgebreide logging"
+    # Keep a stable English slug so the custom panel can resolve the entity even
+    # before switch translations are added. The dashboard itself presents the
+    # control in Dutch.
+    _attr_name = "Detailed logging"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_icon = "mdi:text-box-search-outline"
 
