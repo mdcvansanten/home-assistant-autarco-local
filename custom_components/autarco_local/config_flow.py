@@ -36,8 +36,6 @@ from .modbus_client import (
     AutarcoConnectionError,
     AutarcoConnectionSettings,
     AutarcoModbusClient,
-    OFF_GRID_MINIMUM_SOC_PILOT_FROM,
-    OFF_GRID_MINIMUM_SOC_PILOT_TO,
     OFF_GRID_MINIMUM_SOC_REGISTER,
 )
 from .settings import (
@@ -89,13 +87,21 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                 selector.TextSelectorConfig(type="text")
             ),
             vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=65535, mode=selector.NumberSelectorMode.BOX)
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=65535,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
             vol.Required(
                 CONF_DEVICE_ID,
                 default=defaults.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID),
             ): selector.NumberSelector(
-                selector.NumberSelectorConfig(min=1, max=247, mode=selector.NumberSelectorMode.BOX)
+                selector.NumberSelectorConfig(
+                    min=1,
+                    max=247,
+                    mode=selector.NumberSelectorMode.BOX,
+                )
             ),
             vol.Required(
                 CONF_SCAN_INTERVAL,
@@ -108,7 +114,10 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     unit_of_measurement="s",
                 )
             ),
-            vol.Required(CONF_TIMEOUT, default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)): selector.NumberSelector(
+            vol.Required(
+                CONF_TIMEOUT,
+                default=defaults.get(CONF_TIMEOUT, DEFAULT_TIMEOUT),
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=MIN_TIMEOUT,
                     max=MAX_TIMEOUT,
@@ -116,7 +125,10 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
                     unit_of_measurement="s",
                 )
             ),
-            vol.Required(CONF_RETRIES, default=defaults.get(CONF_RETRIES, DEFAULT_RETRIES)): selector.NumberSelector(
+            vol.Required(
+                CONF_RETRIES,
+                default=defaults.get(CONF_RETRIES, DEFAULT_RETRIES),
+            ): selector.NumberSelector(
                 selector.NumberSelectorConfig(
                     min=MIN_RETRIES,
                     max=MAX_RETRIES,
@@ -135,7 +147,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Create the Autarco Local Settings Center flow."""
+        """Create the native read-only Settings Center fallback flow."""
         return AutarcoLocalOptionsFlow()
 
     async def async_step_user(
@@ -192,13 +204,15 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                 )
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=_get_schema(user_input if user_input is not None else dict(entry.data)),
+            data_schema=_get_schema(
+                user_input if user_input is not None else dict(entry.data)
+            ),
             errors=errors,
         )
 
 
 class AutarcoLocalOptionsFlow(OptionsFlow):
-    """Provide a compact Settings Center with one guarded write pilot."""
+    """Provide a native read-only fallback for the custom Settings Center."""
 
     def _coordinator(self):
         return getattr(self.config_entry, "runtime_data", None)
@@ -207,36 +221,9 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         coordinator = self._coordinator()
         return getattr(coordinator, "settings_data", {}) or {}
 
-    def _set_write_diagnostic(self, message: str) -> None:
-        """Persist the last write diagnostic for the current HA runtime."""
-        coordinator = self._coordinator()
-        if coordinator is not None:
-            coordinator.settings_last_write_diagnostic = message
-        _LOGGER.warning("Autarco write-diagnose: %s", message)
-
-    def _write_status_text(self) -> str:
-        coordinator = self._coordinator()
-        diagnostic = getattr(coordinator, "settings_last_write_diagnostic", None)
-        base = "PILOT — alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
-        if not diagnostic:
-            return f"{base}. Nog geen write-diagnose beschikbaar."
-        return f"{base}. Laatste poging: {diagnostic}"
-
     @staticmethod
     def _readonly_text() -> selector.TextSelector:
         return selector.TextSelector(selector.TextSelectorConfig(read_only=True))
-
-    @staticmethod
-    def _off_grid_soc_number() -> selector.NumberSelector:
-        return selector.NumberSelector(
-            selector.NumberSelectorConfig(
-                min=10,
-                max=100,
-                step=1,
-                mode=selector.NumberSelectorMode.BOX,
-                unit_of_measurement="%",
-            )
-        )
 
     def _format_setting(self, description) -> str:
         value = description.value_fn(self._settings_data())
@@ -245,34 +232,11 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
         unit = description.native_unit_of_measurement
         return f"{value} {unit}" if unit else str(value)
 
-    def _schema_for_access_level(
-        self,
-        access_level: str,
-        *,
-        enable_off_grid_soc_pilot: bool = False,
-    ) -> vol.Schema:
+    def _schema_for_access_level(self, access_level: str) -> vol.Schema:
         fields: dict[Any, Any] = {}
         for description in SETTINGS:
             if description.access_level != access_level:
                 continue
-
-            if (
-                enable_off_grid_soc_pilot
-                and description.key == "setting_off_grid_overdischarge_soc"
-            ):
-                current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
-                fields[
-                    vol.Optional(
-                        description.key,
-                        default=(
-                            int(current)
-                            if current is not None
-                            else OFF_GRID_MINIMUM_SOC_PILOT_FROM
-                        ),
-                    )
-                ] = self._off_grid_soc_number()
-                continue
-
             fields[
                 vol.Optional(description.key, default=self._format_setting(description))
             ] = self._readonly_text()
@@ -281,7 +245,9 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
     def _installer_schema(self) -> vol.Schema:
         fields = dict(self._schema_for_access_level(ACCESS_INSTALLER).schema)
         for key in UNMAPPED_INSTALLER_SETTINGS:
-            fields[vol.Optional(key, default="Not mapped yet — read-only")] = self._readonly_text()
+            fields[vol.Optional(key, default="Not mapped yet — read-only")] = (
+                self._readonly_text()
+            )
         return vol.Schema(fields)
 
     def _safety_schema(self) -> vol.Schema:
@@ -313,23 +279,37 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
 
         return vol.Schema(
             {
-                vol.Optional("safety_reserve_soc", default=pct(reserve_soc)): self._readonly_text(),
-                vol.Optional("safety_minimum_soc", default=pct(minimum_soc)): self._readonly_text(),
-                vol.Optional("safety_force_charge_soc", default=pct(force_charge_soc)): self._readonly_text(),
-                vol.Optional("safety_off_grid_minimum_soc", default=pct(off_grid_minimum_soc)): self._readonly_text(),
-                vol.Optional("safety_soc_relationship", default=reserve_relationship): self._readonly_text(),
-                vol.Optional("safety_force_relationship", default=force_relationship): self._readonly_text(),
+                vol.Optional(
+                    "safety_reserve_soc", default=pct(reserve_soc)
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_minimum_soc", default=pct(minimum_soc)
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_force_charge_soc", default=pct(force_charge_soc)
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_off_grid_minimum_soc", default=pct(off_grid_minimum_soc)
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_soc_relationship", default=reserve_relationship
+                ): self._readonly_text(),
+                vol.Optional(
+                    "safety_force_relationship", default=force_relationship
+                ): self._readonly_text(),
                 vol.Optional(
                     "safety_off_grid_review",
                     default=(
-                        f"Current {off_grid_minimum_soc}% — write pilot target 20%"
-                        if off_grid_minimum_soc is not None
-                        else "Unavailable"
+                        "Gebruik het Autarco Local-zijbalkpaneel voor de begeleide "
+                        "Off-grid minimum SOC 10% → 20% hardwarepilot."
                     ),
                 ): self._readonly_text(),
                 vol.Optional(
                     "safety_write_status",
-                    default=self._write_status_text(),
+                    default=(
+                        "Deze native Configure/Options-flow is bewust read-only. "
+                        "Expert-writes lopen uitsluitend via de begeleide preflight."
+                    ),
                 ): self._readonly_text(),
             }
         )
@@ -342,10 +322,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
                     {"collapsed": False},
                 ),
                 vol.Required("expert_settings"): section(
-                    self._schema_for_access_level(
-                        ACCESS_EXPERT,
-                        enable_off_grid_soc_pilot=True,
-                    ),
+                    self._schema_for_access_level(ACCESS_EXPERT),
                     {"collapsed": False},
                 ),
                 vol.Required("installer_settings"): section(
@@ -362,97 +339,17 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Show settings and execute only the guarded 10-to-20 SOC pilot."""
-        errors: dict[str, str] = {}
-
+        """Show a read-only native fallback; physical writes live in the panel."""
         if user_input is not None:
-            coordinator = self._coordinator()
-            current = self._settings_data().get(OFF_GRID_MINIMUM_SOC_REGISTER)
-            expert_data = user_input.get("expert_settings", {}) or {}
-            requested_raw = expert_data.get(
-                "setting_off_grid_overdischarge_soc",
-                current,
-            )
-
-            try:
-                requested = int(requested_raw) if requested_raw is not None else None
-            except (TypeError, ValueError):
-                requested = None
-
-            if requested is None:
-                self._set_write_diagnostic("AFGEBROKEN — ongeldige invoer ontvangen")
-                errors["base"] = "unknown"
-            elif current is None:
-                self._set_write_diagnostic(
-                    f"AFGEBROKEN — holding register {OFF_GRID_MINIMUM_SOC_REGISTER} is niet beschikbaar"
-                )
-                errors["base"] = "unknown"
-            elif requested == int(current):
-                self._set_write_diagnostic(
-                    f"GEEN WIJZIGING — actuele en aangevraagde waarde zijn beide {current}%"
-                )
-                return self.async_create_entry(data={})
-            elif (
-                int(current) != OFF_GRID_MINIMUM_SOC_PILOT_FROM
-                or requested != OFF_GRID_MINIMUM_SOC_PILOT_TO
-            ):
-                self._set_write_diagnostic(
-                    f"GEWEIGERD — actueel={current}%, aangevraagd={requested}%; alleen 10% -> 20% is toegestaan"
-                )
-                errors["base"] = "unknown"
-            elif coordinator is None:
-                self._set_write_diagnostic("AFGEBROKEN — Home Assistant coordinator ontbreekt")
-                errors["base"] = "unknown"
-            else:
-                self._set_write_diagnostic(
-                    f"GESTART — register {OFF_GRID_MINIMUM_SOC_REGISTER}: pre-read {current}%, aangevraagd 20%"
-                )
-                try:
-                    result = await self.hass.async_add_executor_job(
-                        coordinator.client.write_off_grid_minimum_soc_pilot,
-                        requested,
-                    )
-                except AutarcoConnectionError as err:
-                    diagnostic = (
-                        f"MISLUKT — register {OFF_GRID_MINIMUM_SOC_REGISTER}, "
-                        f"pre-read={current}%, requested={requested}%; {err}"
-                    )
-                    self._set_write_diagnostic(diagnostic)
-                    errors["base"] = "unknown"
-                except Exception as err:
-                    _LOGGER.exception(
-                        "Onverwachte fout tijdens gecontroleerde Off-grid SOC write"
-                    )
-                    self._set_write_diagnostic(
-                        f"MISLUKT — onverwachte {type(err).__name__}: {err}"
-                    )
-                    errors["base"] = "unknown"
-                else:
-                    coordinator.settings_data[result.register] = result.verified_value
-                    coordinator.settings_last_write_register = result.register
-                    coordinator.settings_last_write_previous_value = result.previous_value
-                    coordinator.settings_last_write_value = result.verified_value
-                    coordinator.settings_last_write_duration_ms = result.duration_ms
-                    self._set_write_diagnostic(
-                        f"SUCCES — register {result.register}: {result.previous_value}% -> "
-                        f"{result.verified_value}% bevestigd in {result.duration_ms} ms"
-                    )
-                    coordinator.async_update_listeners()
-                    _LOGGER.warning(
-                        "Off-grid minimum SOC succesvol gewijzigd en geverifieerd: "
-                        "%s%% -> %s%%",
-                        result.previous_value,
-                        result.verified_value,
-                    )
-                    return self.async_create_entry(data={})
+            return self.async_create_entry(data={})
 
         return self.async_show_form(
             step_id="init",
             data_schema=self._settings_center_schema(),
-            errors=errors,
             description_placeholders={
                 "write_status": (
-                    "PILOT: alleen Off-grid minimum SOC 10% -> 20% is schrijfbaar"
+                    "READ-ONLY: gebruik het Autarco Local-zijbalkpaneel voor "
+                    "begeleide Expert-writes"
                 ),
                 "docs_url": AUTARCO_LH_MII_MANUAL_URL,
             },
