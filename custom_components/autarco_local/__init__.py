@@ -11,7 +11,6 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import AutarcoLocalCoordinator
-from .modbus_client import OFF_GRID_MINIMUM_SOC_PILOT_TO
 from .settings_panel import async_register_settings_panel, unregister_settings_panel
 from .settings_security import (
     clear_entry_unlocks,
@@ -21,7 +20,11 @@ from .settings_security import (
     unlock_settings,
     verify_pin,
 )
-from .settings_write import async_write_off_grid_minimum_soc
+from .settings_write_v066 import (
+    OFF_GRID_MINIMUM_SOC_MAX,
+    OFF_GRID_MINIMUM_SOC_MIN,
+    async_write_off_grid_minimum_soc_v066,
+)
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
 
@@ -47,7 +50,7 @@ WRITE_SERVICE_SCHEMA = vol.Schema(
     {
         vol.Required("soc"): vol.All(
             vol.Coerce(int),
-            vol.In([OFF_GRID_MINIMUM_SOC_PILOT_TO]),
+            vol.Range(min=OFF_GRID_MINIMUM_SOC_MIN, max=OFF_GRID_MINIMUM_SOC_MAX),
         ),
         vol.Required("confirm"): vol.In([True]),
         vol.Optional("config_entry_id"): str,
@@ -134,7 +137,7 @@ async def _async_handle_set_off_grid_minimum_soc(
     hass: HomeAssistant,
     call: ServiceCall,
 ) -> None:
-    """Execute the dependency-aware Off-grid minimum SOC write pilot."""
+    """Execute the guarded dependency-aware Off-grid minimum SOC write."""
     user_id = _service_user_id(call)
     entry, coordinator = _loaded_entry_and_coordinator(
         hass,
@@ -144,7 +147,7 @@ async def _async_handle_set_off_grid_minimum_soc(
         raise HomeAssistantError(
             "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
         )
-    await async_write_off_grid_minimum_soc(
+    await async_write_off_grid_minimum_soc_v066(
         hass,
         coordinator,
         int(call.data["soc"]),
