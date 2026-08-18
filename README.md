@@ -17,6 +17,18 @@ De kennis die hier ontstaat — zoals dependency-aware writes, state preservatio
 
 Zie **[`docs/roadmap.md`](docs/roadmap.md)** voor de scopegrens en planning.
 
+## Autarco Local dashboard
+
+Vanaf v0.6.5 wordt de zijbalkinterface opgebouwd als één Autarco Local-omgeving met tabs:
+
+- **Overzicht** — compacte live samenvatting;
+- **PV** — PV- en MPPT-entiteiten;
+- **Batterij** — batterijstatus en batterijmetingen;
+- **Diagnose** — verbinding, polling, retries en beschikbaarheid;
+- **Instellingen** — settings, uitleg, dependencies en de gecontroleerde writepilot.
+
+De native Home Assistant-route **Instellingen → Apparaten & diensten → Autarco Local → Configureren** blijft daarnaast bewust beschikbaar als functionele fallback voor de settings.
+
 ## Settings en beslisondersteuning
 
 De invertersettings zijn ingedeeld in:
@@ -29,7 +41,20 @@ Belangrijk uitgangspunt: een setting wordt niet als een los register behandeld. 
 
 Voorbeeld: Off-grid minimum SOC is op de huidige hardware alleen wijzigbaar wanneer Off-grid actief is. Als Off-grid al actief was, blijft het actief. Alleen wanneer de integratie een mode zelf tijdelijk heeft gewijzigd, mag zij die na afloop herstellen.
 
-In v0.6.4 krijgt de beperkte `10% → 20%` hardwarepilot hiervoor een begeleide preflight in het Settings Center. De gebruiker ziet vóór bevestiging de actuele relevante settings, de dependency, de geplande transactie en de verwachte eindtoestand.
+De beperkte `10% → 20%` hardwarepilot gebruikt een begeleide preflight: vóór bevestiging worden de actuele relevante settings, de dependency, de geplande transactie en de verwachte eindtoestand getoond.
+
+### Settings-PIN
+
+Write-capable settings zijn standaard vergrendeld.
+
+- de PIN bestaat uit 4–8 cijfers;
+- alleen een salted PBKDF2-SHA256 hash wordt opgeslagen, nooit de PIN zelf;
+- de dashboard-unlock geldt backend-side per ingelogde Home Assistant-gebruiker;
+- de unlock vervalt automatisch na 10 minuten;
+- handmatig opnieuw vergrendelen is mogelijk;
+- een Expert-write houdt zijn eigen preflight en bevestiging bovenop de PIN-unlock.
+
+De PIN wordt ingesteld via de native **Configureren**-route. Ook een write vanuit die fallback vereist de PIN expliciet.
 
 Lees:
 
@@ -69,6 +94,18 @@ Een setting wordt pas schrijfbaar als minimaal bekend en getest is:
 
 Geen guessed registers, geen undocumented unlocks en geen blind rollback.
 
+## Validatie
+
+De repository-CI controleert:
+
+- Python syntax;
+- JSON syntax;
+- custom frontend JavaScript syntax;
+- Hassfest;
+- HACS-validatie.
+
+Een groene CI vervangt geen hardwaretest: featurebranches en draft PR's blijven testbuilds totdat het gedrag op de echte installatie is bevestigd.
+
 ## Installatie via HACS
 
 Voor een officiële release:
@@ -77,8 +114,6 @@ Voor een officiële release:
 2. Werk **Autarco Local** bij via HACS.
 3. Herstart Home Assistant volledig.
 4. Open **Instellingen → Apparaten & diensten → Autarco Local**.
-
-Featurebranches en draft PR's zijn uitsluitend testbuilds en moeten eerst op echte hardware worden gevalideerd.
 
 Aanbevolen verbindingsinstellingen voor de huidige testopstelling:
 
