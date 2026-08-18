@@ -12,7 +12,7 @@ from .const import DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6.2"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6.3"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 _FRONTEND_FILES = (
@@ -31,9 +31,9 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
     """Register the Autarco Local tabbed dashboard once.
 
     The custom sidebar panel is deliberately kept separate from Home Assistant's
-    native integration Options flow. The integration gear must keep opening the
-    native Configure/Options flow because that is where the backend-protected
-    settings PIN is created/changed.
+    native integration Options flow. The integration gear opens the native
+    Configure/Options flow, which is PIN/security-only. Inverter settings live
+    exclusively in the Autarco Local dashboard.
     """
     state = hass.data.setdefault(
         DATA_PANEL,
