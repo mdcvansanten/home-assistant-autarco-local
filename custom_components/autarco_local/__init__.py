@@ -30,16 +30,18 @@ SERVICE_LOCK_SETTINGS = "lock_settings"
 SERVICE_SET_OFF_GRID_MINIMUM_SOC = "set_off_grid_minimum_soc"
 DATA_SERVICES_REGISTERED = f"{DOMAIN}_services_registered"
 
-ENTRY_SELECTOR_SCHEMA = {vol.Optional("config_entry_id"): str}
-
 UNLOCK_SERVICE_SCHEMA = vol.Schema(
     {
         vol.Required("pin"): str,
-        **ENTRY_SELECTOR_SCHEMA,
+        vol.Optional("config_entry_id"): str,
     }
 )
 
-LOCK_SERVICE_SCHEMA = vol.Schema(ENTRY_SELECTOR_SCHEMA)
+LOCK_SERVICE_SCHEMA = vol.Schema(
+    {
+        vol.Optional("config_entry_id"): str,
+    }
+)
 
 WRITE_SERVICE_SCHEMA = vol.Schema(
     {
@@ -48,7 +50,7 @@ WRITE_SERVICE_SCHEMA = vol.Schema(
             vol.In([OFF_GRID_MINIMUM_SOC_PILOT_TO]),
         ),
         vol.Required("confirm"): vol.In([True]),
-        **ENTRY_SELECTOR_SCHEMA,
+        vol.Optional("config_entry_id"): str,
     }
 )
 
