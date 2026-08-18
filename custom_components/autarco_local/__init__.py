@@ -197,13 +197,17 @@ async def async_setup_entry(
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
     """Set up Autarco Local from a config entry."""
+    # Register the UI before talking to the logger. This keeps the Autarco Local
+    # dashboard/diagnostics route available when the LAN stick is temporarily
+    # unavailable during Home Assistant startup.
+    await async_register_settings_panel(hass, entry.entry_id)
+
     coordinator = AutarcoLocalCoordinator(hass, entry)
     await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    await async_register_settings_panel(hass, entry.entry_id)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
     return True
 
@@ -212,7 +216,7 @@ async def async_unload_entry(
     hass: HomeAssistant,
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
-    """Unload a config entry."""
+    """Unload Autarco Local from a config entry."""
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         clear_entry_unlocks(hass, entry.entry_id)
