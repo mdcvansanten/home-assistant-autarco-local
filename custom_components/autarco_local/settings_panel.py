@@ -12,7 +12,8 @@ from .const import DOMAIN
 
 PANEL_COMPONENT = "autarco-local-settings-panel"
 PANEL_URL_PATH = "autarco-local-settings"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-settings-panel.js"
+PANEL_STATIC_URL = "/autarco_local/frontend/autarco-settings-panel.js"
+PANEL_MODULE_URL = f"{PANEL_STATIC_URL}?v=0.6.4"
 DATA_PANEL = f"{DOMAIN}_settings_panel"
 
 
@@ -31,7 +32,7 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
     if not state["static_registered"]:
         frontend_path = Path(__file__).parent / "frontend" / "autarco-settings-panel.js"
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(PANEL_MODULE_URL, str(frontend_path), False)]
+            [StaticPathConfig(PANEL_STATIC_URL, str(frontend_path), False)]
         )
         state["static_registered"] = True
 
