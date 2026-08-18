@@ -34,30 +34,33 @@ lock_settings:
         text:
 
 set_off_grid_minimum_soc:
-  name: Set Off-grid minimum SOC (pilot)
+  name: Set Off-grid minimum SOC
   description: >-
-    Guarded hardware pilot for changing Off-grid minimum SOC from 10% to 20%.
-    Requires an active PIN unlock. If Off-grid is already active it remains
-    active. If Autarco Local must temporarily activate Off-grid, the original
-    complete work-mode state is restored and verified afterwards.
+    Guarded Expert write for the single hardware-validated Off-grid minimum SOC
+    setting (holding register 43137). Accepts the documented 10–100% range and
+    requires an active PIN unlock plus explicit confirmation. If Off-grid is
+    already active it remains active. If Autarco Local must temporarily activate
+    Off-grid, the original complete work-mode state is restored and verified
+    afterwards. No other setting register is opened by this service.
   fields:
     soc:
       name: Target SOC
-      description: The only target allowed by this hardware pilot is 20%.
+      description: Target Off-grid minimum SOC from 10% through 100%.
       required: true
-      example: 20
+      example: 21
       selector:
         number:
-          min: 20
-          max: 20
+          min: 10
+          max: 100
           step: 1
           unit_of_measurement: "%"
           mode: box
     confirm:
       name: Confirm expert write
       description: >-
-        Explicit confirmation that this expert write may temporarily activate
-        Off-grid when it was not already active.
+        Explicit confirmation that this Expert write may temporarily activate
+        Off-grid when it was not already active and will then restore the
+        original work-mode state.
       required: true
       example: true
       selector:
