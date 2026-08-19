@@ -27,12 +27,18 @@ from .settings_write_v066 import (
 from .settings_write_v066_safety import (
     async_write_off_grid_minimum_soc_v066_safe,
 )
+from .settings_write_v070 import (
+    RESERVE_SOC_MAX,
+    RESERVE_SOC_MIN,
+    async_test_reserve_soc_v070,
+)
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
 
 SERVICE_UNLOCK_SETTINGS = "unlock_settings"
 SERVICE_LOCK_SETTINGS = "lock_settings"
 SERVICE_SET_OFF_GRID_MINIMUM_SOC = "set_off_grid_minimum_soc"
+SERVICE_TEST_RESERVE_SOC = "test_reserve_soc"
 DATA_SERVICES_REGISTERED = f"{DOMAIN}_services_registered"
 
 UNLOCK_SERVICE_SCHEMA = vol.Schema(
@@ -53,6 +59,17 @@ WRITE_SERVICE_SCHEMA = vol.Schema(
         vol.Required("soc"): vol.All(
             vol.Coerce(int),
             vol.Range(min=OFF_GRID_MINIMUM_SOC_MIN, max=OFF_GRID_MINIMUM_SOC_MAX),
+        ),
+        vol.Required("confirm"): vol.In([True]),
+        vol.Optional("config_entry_id"): str,
+    }
+)
+
+RESERVE_TEST_SERVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("soc"): vol.All(
+            vol.Coerce(int),
+            vol.Range(min=RESERVE_SOC_MIN, max=RESERVE_SOC_MAX),
         ),
         vol.Required("confirm"): vol.In([True]),
         vol.Optional("config_entry_id"): str,
@@ -102,6 +119,18 @@ def _service_user_id(call: ServiceCall) -> str:
     return user_id
 
 
+def _require_settings_unlock(
+    hass: HomeAssistant,
+    entry: AutarcoLocalConfigEntry,
+    user_id: str,
+) -> None:
+    """Require the existing per-user PIN unlock for any physical write."""
+    if not settings_are_unlocked(hass, entry.entry_id, user_id):
+        raise HomeAssistantError(
+            "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
+        )
+
+
 async def _async_handle_unlock_settings(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -118,8 +147,6 @@ async def _async_handle_unlock_settings(
             "en stel eerst een PIN van 4 tot 8 cijfers in."
         )
 
-    # PBKDF2 verification is deliberately moved off Home Assistant's event loop.
-    # This keeps the UI responsive even on slower Raspberry Pi hardware.
     pin_valid = await hass.async_add_executor_job(
         verify_pin,
         entry,
@@ -153,11 +180,26 @@ async def _async_handle_set_off_grid_minimum_soc(
         hass,
         call.data.get("config_entry_id"),
     )
-    if not settings_are_unlocked(hass, entry.entry_id, user_id):
-        raise HomeAssistantError(
-            "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
-        )
+    _require_settings_unlock(hass, entry, user_id)
     await async_write_off_grid_minimum_soc_v066_safe(
+        hass,
+        coordinator,
+        int(call.data["soc"]),
+    )
+
+
+async def _async_handle_test_reserve_soc(
+    hass: HomeAssistant,
+    call: ServiceCall,
+) -> None:
+    """Execute the one-point reversible Reserve SOC hardware-test transaction."""
+    user_id = _service_user_id(call)
+    entry, coordinator = _loaded_entry_and_coordinator(
+        hass,
+        call.data.get("config_entry_id"),
+    )
+    _require_settings_unlock(hass, entry, user_id)
+    await async_test_reserve_soc_v070(
         hass,
         coordinator,
         int(call.data["soc"]),
@@ -178,6 +220,9 @@ def _async_register_services(hass: HomeAssistant) -> None:
     async def write_handler(call: ServiceCall) -> None:
         await _async_handle_set_off_grid_minimum_soc(hass, call)
 
+    async def reserve_test_handler(call: ServiceCall) -> None:
+        await _async_handle_test_reserve_soc(hass, call)
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_UNLOCK_SETTINGS,
@@ -196,6 +241,12 @@ def _async_register_services(hass: HomeAssistant) -> None:
         write_handler,
         schema=WRITE_SERVICE_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_TEST_RESERVE_SOC,
+        reserve_test_handler,
+        schema=RESERVE_TEST_SERVICE_SCHEMA,
+    )
     hass.data[DATA_SERVICES_REGISTERED] = True
 
 
@@ -210,9 +261,6 @@ async def async_setup_entry(
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
     """Set up Autarco Local from a config entry."""
-    # Register the UI before talking to the logger. This keeps the Autarco Local
-    # dashboard/diagnostics route available when the LAN stick is temporarily
-    # unavailable during Home Assistant startup.
     await async_register_settings_panel(hass, entry.entry_id)
 
     coordinator = AutarcoLocalCoordinator(hass, entry)
