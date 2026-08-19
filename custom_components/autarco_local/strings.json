@@ -44,17 +44,19 @@
     },
     "step": {
       "init": {
-        "title": "Settings security",
-        "description": "Manage only the PIN used to unlock writes. Inverter settings are viewed and changed in **Autarco Local → Settings**.",
+        "title": "Settings security and safety source",
+        "description": "Manage the PIN used to unlock writes and select the Home Assistant battery-SOC sensor that Autarco Local may trust for safety checks. Inverter settings are viewed and changed in **Autarco Local → Settings**.",
         "data": {
           "settings_pin_status": "PIN status",
           "settings_new_pin": "New PIN",
-          "settings_clear_pin": "Remove PIN"
+          "settings_clear_pin": "Remove PIN",
+          "battery_soc_entity": "Trusted battery SOC source"
         },
         "data_description": {
           "settings_pin_status": "Shows whether a Settings PIN is configured.",
           "settings_new_pin": "Set or replace the PIN. Use 4 to 8 digits.",
-          "settings_clear_pin": "Remove the configured PIN. Writes will remain locked until a new PIN is set."
+          "settings_clear_pin": "Remove the configured PIN. Writes will remain locked until a new PIN is set.",
+          "battery_soc_entity": "Choose a Home Assistant sensor that reports the real battery state of charge in %. For example, select the Dyness SOC sensor. This value is used only as a safety prerequisite for temporary Off-grid activation."
         }
       }
     }
