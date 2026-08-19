@@ -1,9 +1,10 @@
 """Guarded v0.7.0 hardware tests for newly opened settings.
 
-Only Reserve SOC is included initially.  The transaction is deliberately much
+Only Reserve SOC is included initially. The transaction is deliberately much
 narrower than a production writer: it permits a one-percentage-point reversible
-test only while Battery Reserve mode is OFF, so the configured reserve target is
-not actively governing battery behaviour during the mapping/write test.
+test only in normal Self-use operation while Battery Reserve and Off-grid are
+both OFF, so the configured reserve target is not actively governing battery
+behaviour during the mapping/write test.
 """
 
 from __future__ import annotations
@@ -19,6 +20,8 @@ from .modbus_client import AutarcoConnectionError, STORAGE_MODE_REGISTER
 
 RESERVE_SOC_REGISTER = 43024
 MINIMUM_BATTERY_SOC_REGISTER = 43011
+SELF_USE_MODE_MASK = 1 << 0
+OFF_GRID_MODE_MASK = 1 << 2
 RESERVE_MODE_MASK = 1 << 4
 RESERVE_SOC_MIN = 20
 RESERVE_SOC_MAX = 100
@@ -44,7 +47,7 @@ def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int)
             f"Reserve SOC test verwacht {RESERVE_SOC_MIN}–{RESERVE_SOC_MAX}%, ontvangen {requested}%"
         )
 
-    with client._lock:  # Same client lock used by normal polling and v0.6.x writes.
+    with client._lock:
         client._ensure_connected_locked("socket was niet verbonden vóór Reserve SOC test")
         started = time.monotonic()
 
@@ -61,9 +64,17 @@ def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int)
             "Pre-write read work-mode mislukt",
         )
 
+        if not mode_value & SELF_USE_MODE_MASK:
+            raise AutarcoConnectionError(
+                "Reserve SOC hardwaretest vereist Self-use AAN"
+            )
+        if mode_value & OFF_GRID_MODE_MASK:
+            raise AutarcoConnectionError(
+                "Reserve SOC hardwaretest vereist Off-grid UIT"
+            )
         if mode_value & RESERVE_MODE_MASK:
             raise AutarcoConnectionError(
-                "Reserve SOC hardwaretest is alleen toegestaan terwijl Reserve battery mode UIT staat"
+                "Reserve SOC hardwaretest vereist Reserve battery mode UIT"
             )
 
         if abs(requested - previous) != 1:
@@ -145,7 +156,8 @@ async def async_test_reserve_soc_v070(
         coordinator.settings_unsupported_blocks = fresh.unsupported_blocks
         coordinator.settings_last_write_diagnostic = (
             f"SUCCES — Reserve SOC {result.previous}% → {result.requested}% bleef stabiel "
-            f"in {len(result.stability_samples)} extra read-backs; Reserve mode bleef UIT."
+            f"in {len(result.stability_samples)} extra read-backs; Self-use bleef AAN, "
+            "Off-grid en Reserve mode bleven UIT."
         )
 
     coordinator.async_update_listeners()
