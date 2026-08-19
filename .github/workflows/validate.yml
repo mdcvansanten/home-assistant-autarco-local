@@ -23,7 +23,7 @@ jobs:
       - uses: home-assistant/actions/hassfest@master
 
   syntax:
-    name: Python, JSON and frontend syntax
+    name: Python and JSON syntax
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
