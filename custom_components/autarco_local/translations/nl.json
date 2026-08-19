@@ -37,6 +37,30 @@
       }
     }
   },
+  "options": {
+    "error": {
+      "pin_conflict": "Kies óf een nieuwe PIN óf PIN verwijderen, niet beide.",
+      "invalid_pin": "Voer een geldige PIN van 4 tot en met 8 cijfers in."
+    },
+    "step": {
+      "init": {
+        "title": "Instellingenbeveiliging en veiligheidsbron",
+        "description": "Beheer hier de PIN waarmee writes worden ontgrendeld en kies welke Home Assistant batterij-SOC sensor Autarco Local voor veiligheidscontroles mag vertrouwen. Omvormerinstellingen bekijk en wijzig je via **Autarco Local → Instellingen**.",
+        "data": {
+          "settings_pin_status": "PIN-status",
+          "settings_new_pin": "Nieuwe PIN",
+          "settings_clear_pin": "PIN verwijderen",
+          "battery_soc_entity": "Betrouwbare batterij-SOC bron"
+        },
+        "data_description": {
+          "settings_pin_status": "Laat zien of er een instellingen-PIN is ingesteld.",
+          "settings_new_pin": "Stel de PIN in of vervang hem. Gebruik 4 tot en met 8 cijfers.",
+          "settings_clear_pin": "Verwijder de ingestelde PIN. Writes blijven daarna geblokkeerd totdat opnieuw een PIN is ingesteld.",
+          "battery_soc_entity": "Kies een Home Assistant sensor die de werkelijke batterij-SOC in % toont. Voor jouw installatie kan dit de Dyness SOC-sensor zijn. Deze waarde wordt alleen gebruikt als veiligheidsvoorwaarde voor tijdelijke Off-grid-activatie."
+        }
+      }
+    }
+  },
   "entity": {
     "binary_sensor": {
       "connection": {"name": "Modbus-verbinding"},
@@ -96,7 +120,34 @@
       "pv_energy_today": {"name": "PV-opbrengst vandaag"},
       "pv_energy_year": {"name": "PV-opbrengst dit jaar"},
       "pv_alarm_code": {"name": "PV-alarmcode"},
-      "pv_bus_voltage": {"name": "PV-busspanning"}
+      "pv_bus_voltage": {"name": "PV-busspanning"},
+      "setting_overcharge_soc": {"name": "🔴 Overlaad-SOC"},
+      "setting_overdischarge_soc": {"name": "🟡 Minimum batterij-SOC"},
+      "setting_force_charge_soc": {"name": "🟡 Force-charge-SOC"},
+      "setting_reserve_soc": {"name": "🟢 Reserve-SOC"},
+      "setting_force_charge_power_limit": {"name": "🟡 Force-charge vermogenslimiet"},
+      "setting_self_use_mode": {"name": "🟢 Zelfverbruikmodus"},
+      "setting_time_of_use_mode": {"name": "🟢 Nethandelschema / Time-of-use"},
+      "setting_off_grid_mode": {"name": "🟡 Off-gridmodus"},
+      "setting_reserve_battery_mode": {"name": "🟢 Reservebatterijmodus"},
+      "setting_allow_grid_charge": {"name": "🟡 Laden vanuit net toestaan"},
+      "setting_feed_in_priority_mode": {"name": "🟢 Terugleverprioriteit"},
+      "setting_off_grid_overdischarge_soc": {"name": "🟡 Minimum-SOC off-grid"},
+      "setting_time_charge_current": {"name": "🟡 Geplande laadstroom"},
+      "setting_time_discharge_current": {"name": "🟡 Geplande ontlaadstroom"},
+      "setting_charge_start_1": {"name": "🟢 Laadslot 1 start"},
+      "setting_charge_end_1": {"name": "🟢 Laadslot 1 einde"},
+      "setting_discharge_start_1": {"name": "🟢 Ontlaadslot 1 start"},
+      "setting_discharge_end_1": {"name": "🟢 Ontlaadslot 1 einde"},
+      "setting_charge_start_2": {"name": "🟢 Laadslot 2 start"},
+      "setting_charge_end_2": {"name": "🟢 Laadslot 2 einde"},
+      "setting_discharge_start_2": {"name": "🟢 Ontlaadslot 2 start"},
+      "setting_discharge_end_2": {"name": "🟢 Ontlaadslot 2 einde"},
+      "setting_charge_start_3": {"name": "🟢 Laadslot 3 start"},
+      "setting_charge_end_3": {"name": "🟢 Laadslot 3 einde"},
+      "setting_discharge_start_3": {"name": "🟢 Ontlaadslot 3 start"},
+      "setting_discharge_end_3": {"name": "🟢 Ontlaadslot 3 einde"},
+      "settings_status": {"name": "Status instellingen uitlezen"}
     }
   },
   "exceptions": {

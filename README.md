@@ -2,43 +2,120 @@
 
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
-Lokale, uitsluitend-lezen Home Assistant-integratie voor Autarco-omvormers via Modbus TCP.
+Lokale Home Assistant-integratie voor de Autarco hybride omvormer in de thuisinstallatie, met Autarco LH-MII als huidige gevalideerde hardwarelijn.
 
-> [!WARNING]
-> Dit is een ontwikkelversie. Er worden geen Modbus-schrijfopdrachten uitgevoerd.
+> [!CAUTION]
+> De `v0.6.x` ontwikkellijn bevat **beperkte hardware-write pilots**. Dit is nog geen algemene vrijgave om invertersettings te schrijven. Alleen expliciet gevalideerde transacties mogen worden uitgevoerd; overige settings blijven read-only of locked.
 
-## Versie 0.4.2 — PV / zonnepanelenmonitoring
+## Scope van dit project
 
-v0.4.2 bevat de v0.4 PV/zonnepanelenmonitoring plus een packaging/translation-fix zodat Home Assistant en HACS de nieuwe entiteiten en versie correct herkennen.
+Autarco Local blijft bewust een **Autarco-thuisproject**. Het doel is om de lokale Autarco-installatie betrouwbaar, veilig en prettig vanuit Home Assistant te monitoren, diagnosticeren en waar verantwoord te bedienen.
 
-Nieuw in de v0.4-serie:
+Dit repository wordt **geen generiek multi-vendor EMS-platform**.
 
-- berekend vermogen per PV-ingang/MPPT voor PV1 en PV2;
-- PV3/PV4 spanning, stroom en berekend vermogen aanwezig maar standaard uitgeschakeld;
-- actuele totale PV-productie;
-- PV-opbrengst vandaag, deze maand, dit jaar en totaal;
-- binaire status **PV-productie actief**;
-- optionele diagnostiek voor PV-alarmcode en DC-busspanning;
-- alle bestaande inverter-, batterij- en verbindingssensoren blijven behouden;
-- geen nieuwe Modbus-registerblokken nodig: de gebruikte PV-registers vallen binnen het bestaande input-registerbereik;
-- geen write-functionaliteit.
+De kennis die hier ontstaat — zoals dependency-aware writes, state preservation, settings-metadata, beslisondersteuning en diagnose — wordt later gebruikt als referentie voor een **apart SNS-platformproject in een eigen GitHub-repository**. Daar komt pas de configureerbare multi-vendor architectuur voor installateurs.
 
-v0.4.2 corrigeert daarnaast de Engelse runtimevertalingen voor de nieuwe PV-entiteiten en verhoogt de manifestversie correct. De eerder gepubliceerde `v0.4.1`-tag rapporteerde intern nog versie `0.4.0`; gebruik daarom v0.4.2 of nieuwer.
+Zie **[`docs/roadmap.md`](docs/roadmap.md)** voor de scopegrens en planning.
 
-De vermogenssensoren per PV-ingang worden afgeleid uit lokale spanning × stroom. Ze zijn bedoeld als MPPT/string-monitoring en hoeven door afronding of omzettingsverliezen niet exact op te tellen tot het totale DC-PV-vermogen van de omvormer.
+## Autarco Local dashboard
 
-Een automatische "gezond / defect"-beoordeling per string wordt bewust nog niet toegevoegd. Daarvoor moeten eerst de fysieke stringindeling, oriëntatie en normale productiepatronen bekend en gevalideerd zijn.
+Vanaf v0.6.5 wordt de zijbalkinterface opgebouwd als één Autarco Local-omgeving met tabs:
 
-Zie [`docs/pv_monitoring.md`](docs/pv_monitoring.md) voor de registers en het testplan.
+- **Overzicht** — compacte live samenvatting;
+- **PV** — PV- en MPPT-entiteiten;
+- **Batterij** — batterijstatus en batterijmetingen;
+- **Diagnose** — verbinding, polling, retries en beschikbaarheid;
+- **Instellingen** — settings, uitleg, dependencies en de gecontroleerde writepilot.
+
+De native Home Assistant-route **Instellingen → Apparaten & diensten → Autarco Local → Configureren** blijft daarnaast bewust beschikbaar als functionele fallback voor de settings.
+
+## Settings en beslisondersteuning
+
+De invertersettings zijn ingedeeld in:
+
+- 🟢 **Standard** — normale gebruikersinstellingen na write-validatie;
+- 🟡 **Expert** — alleen met context, preflight en bevestiging;
+- 🔴 **Installer/system** — zichtbaar voor diagnose, standaard hard read-only.
+
+Belangrijk uitgangspunt: een setting wordt niet als een los register behandeld. Autarco Local houdt rekening met parent modes, onderlinge uitsluiting, safety-relaties en de oorspronkelijke toestand van de installatie.
+
+Voorbeeld: Off-grid minimum SOC is op de huidige hardware alleen wijzigbaar wanneer Off-grid actief is. Als Off-grid al actief was, blijft het actief. Alleen wanneer de integratie een mode zelf tijdelijk heeft gewijzigd, mag zij die na afloop herstellen.
+
+De beperkte `10% → 20%` hardwarepilot gebruikt een begeleide preflight: vóór bevestiging worden de actuele relevante settings, de dependency, de geplande transactie en de verwachte eindtoestand getoond.
+
+### Settings-PIN
+
+Write-capable settings zijn standaard vergrendeld.
+
+- de PIN bestaat uit 4–8 cijfers;
+- alleen een salted PBKDF2-SHA256 hash wordt opgeslagen, nooit de PIN zelf;
+- de dashboard-unlock geldt backend-side per ingelogde Home Assistant-gebruiker;
+- de unlock vervalt automatisch na 10 minuten;
+- handmatig opnieuw vergrendelen is mogelijk;
+- een Expert-write houdt zijn eigen preflight en bevestiging bovenop de PIN-unlock.
+
+De PIN wordt ingesteld via de native **Configureren**-route. Ook een write vanuit die fallback vereist de PIN expliciet.
+
+Lees:
+
+- **[`docs/settings-decision-tree.md`](docs/settings-decision-tree.md)** — volledige Autarco-beslisboom, dependency-matrix en expert-preflight;
+- **[`docs/setting-dependency-research.md`](docs/setting-dependency-research.md)** — aanvullend officieel dependency-onderzoek voor nog niet of deels gemapte settings;
+- **[`docs/write-dependencies.md`](docs/write-dependencies.md)** — state-preservation en transactionregels;
+- **[`docs/settings.md`](docs/settings.md)** — huidige registermapping en validatiegegevens.
+
+## Bestaande monitoring
+
+Autarco Local biedt onder andere:
+
+- inverter-, net- en batterijmonitoring;
+- PV1/PV2 spanning, stroom en berekend vermogen;
+- PV-opbrengst vandaag, maand, jaar en totaal;
+- PV3/PV4 voorbereid en standaard uitgeschakeld;
+- verbindingsdiagnostiek, retries, uptime/downtime en persistente historie;
+- aparte non-critical holding-register polling voor invertersettings.
+
+## Veilige write-policy
+
+Een setting wordt pas schrijfbaar als minimaal bekend en getest is:
+
+1. exact register/command;
+2. unit en schaalfactor;
+3. geldig bereik;
+4. access-level;
+5. write- en effect-dependencies;
+6. cross-setting safetyregels;
+7. hardware/config prerequisites;
+8. fresh pre-read;
+9. write-result;
+10. read-back verificatie;
+11. restore/conflictgedrag indien een parent mode betrokken is;
+12. audit/foutpad;
+13. echte hardwarevalidatie.
+
+Geen guessed registers, geen undocumented unlocks en geen blind rollback.
+
+## Validatie
+
+De repository-CI controleert:
+
+- Python syntax;
+- JSON syntax;
+- custom frontend JavaScript syntax;
+- Hassfest;
+- HACS-validatie.
+
+Een groene CI vervangt geen hardwaretest: featurebranches en draft PR's blijven testbuilds totdat het gedrag op de echte installatie is bevestigd.
 
 ## Installatie via HACS
 
-1. Gebruik de nieuwste gepubliceerde GitHub release (v0.4.2 of nieuwer).
+Voor een officiële release:
+
+1. Gebruik de nieuwste gepubliceerde GitHub release.
 2. Werk **Autarco Local** bij via HACS.
 3. Herstart Home Assistant volledig.
 4. Open **Instellingen → Apparaten & diensten → Autarco Local**.
 
-Aanbevolen instellingen voor het testsysteem:
+Aanbevolen verbindingsinstellingen voor de huidige testopstelling:
 
 - Modbus TCP-poort: `502`
 - Device-ID: `1`
@@ -46,11 +123,17 @@ Aanbevolen instellingen voor het testsysteem:
 - Timeout: `5` seconden
 - Nieuwe pogingen: `2`
 
-> Bestaande installaties behouden eerdere entity-registrykeuzes. Nieuwe PV3/PV4- en detaildiagnostiek zijn standaard uitgeschakeld en kunnen handmatig worden aangezet.
+## Belangrijke documentatie
 
-## Roadmap
+- [Roadmap](docs/roadmap.md)
+- [Settings decision tree](docs/settings-decision-tree.md)
+- [Setting dependency research](docs/setting-dependency-research.md)
+- [Write dependencies](docs/write-dependencies.md)
+- [Settings/register map](docs/settings.md)
 
-Zie [`docs/roadmap.md`](docs/roadmap.md).
+## Toekomstig SNS-platform
+
+Het SNS-platform wordt **niet in deze repository ontwikkeld**. Zodra Autarco Local thuis voldoende bewezen is, starten we daarvoor een apart GitHub-project met eigen architectuur, installerconfiguratie en multi-vendor device-selectie.
 
 ## Licentie
 
