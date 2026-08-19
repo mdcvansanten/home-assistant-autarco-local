@@ -12,4 +12,4 @@ import "./autarco-dashboard-v066-ui-state.js?v=0.6.6.5";
 import "./autarco-dashboard-v066-stability.js?v=0.6.6.5";
 import "./autarco-dashboard-v066-transaction-ux.js?v=0.6.6.8";
 import "./autarco-dashboard-v066-unlock-guard.js?v=0.6.6.7";
-import "./autarco-dashboard-v066-safety.js?v=0.6.6.9";
+import "./autarco-dashboard-v066-safety.js?v=0.6.6.11";
