@@ -8,11 +8,11 @@ from homeassistant.components import frontend, panel_custom
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
+from .const import CONF_BATTERY_SOC_ENTITY, DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6.10"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.6.6.11"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 _FRONTEND_FILES = (
@@ -35,9 +35,9 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
     """Register the Autarco Local tabbed dashboard once.
 
     The custom sidebar panel is deliberately kept separate from Home Assistant's
-    native integration Options flow. The integration gear opens the native
-    Configure/Options flow, which is PIN/security-only. Inverter settings live
-    exclusively in the Autarco Local dashboard.
+    native integration Options flow. The integration gear manages security and
+    the trusted battery-SOC source; inverter settings live exclusively in the
+    Autarco Local dashboard.
     """
     state = hass.data.setdefault(
         DATA_PANEL,
@@ -65,6 +65,11 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
     if frontend.async_panel_exists(hass, PANEL_URL_PATH):
         return
 
+    entry = hass.config_entries.async_get_entry(entry_id)
+    battery_soc_entity = None
+    if entry is not None:
+        battery_soc_entity = entry.options.get(CONF_BATTERY_SOC_ENTITY)
+
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
@@ -72,7 +77,10 @@ async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> N
         sidebar_title="Autarco Local",
         sidebar_icon="mdi:solar-power",
         module_url=PANEL_MODULE_URL,
-        config={"domain": DOMAIN},
+        config={
+            "domain": DOMAIN,
+            "battery_soc_entity": battery_soc_entity,
+        },
         require_admin=False,
     )
 
