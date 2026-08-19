@@ -2,7 +2,7 @@
 
 This deliberately reuses the already proven state-preservation rules from the
 v0.6.3-v0.6.5 pilot, but opens the *same* register to the documented 10-100%
-range so the current 20% installation can perform a small reversible write test.
+range so the current installation can perform a small reversible write test.
 No other setting/register becomes writable here.
 """
 
@@ -25,7 +25,6 @@ from .modbus_client import (
 
 _LOGGER = logging.getLogger(__name__)
 
-BATTERY_SOC_REGISTER = 33139
 OFF_GRID_MINIMUM_SOC_MIN = 10
 OFF_GRID_MINIMUM_SOC_MAX = 100
 TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC = 30
@@ -185,8 +184,16 @@ async def async_write_off_grid_minimum_soc_v066(
     hass: HomeAssistant,
     coordinator: AutarcoLocalCoordinator,
     requested: int,
+    *,
+    trusted_battery_soc: float | None = None,
 ) -> None:
-    """Execute one guarded Off-grid SOC write in the documented 10-100% range."""
+    """Execute one guarded Off-grid SOC write in the documented 10-100% range.
+
+    ``trusted_battery_soc`` is deliberately supplied by the outer safety layer.
+    The inverter runtime register is not used for temporary Off-grid activation,
+    because hardware testing proved that it can report a plausible value while
+    the external battery is not actually connected.
+    """
     requested = int(requested)
     if not OFF_GRID_MINIMUM_SOC_MIN <= requested <= OFF_GRID_MINIMUM_SOC_MAX:
         raise HomeAssistantError(
@@ -211,7 +218,6 @@ async def async_write_off_grid_minimum_soc_v066(
 
     current = coordinator.settings_data.get(OFF_GRID_MINIMUM_SOC_REGISTER)
     mode_value = coordinator.settings_data.get(STORAGE_MODE_REGISTER)
-    battery_soc = (coordinator.data or {}).get(BATTERY_SOC_REGISTER)
 
     if current is None:
         raise HomeAssistantError("Off-grid minimum SOC kon niet vers worden uitgelezen.")
@@ -228,16 +234,16 @@ async def async_write_off_grid_minimum_soc_v066(
 
     off_grid_was_active = bool(mode_value & OFF_GRID_MODE_MASK)
     if not off_grid_was_active:
-        if battery_soc is None:
+        if trusted_battery_soc is None:
             raise HomeAssistantError(
-                "Batterij-SOC is niet beschikbaar. Autarco Local activeert Off-grid daarom "
-                "niet tijdelijk."
+                "Betrouwbare batterij-SOC is niet beschikbaar. Autarco Local activeert "
+                "Off-grid daarom niet tijdelijk."
             )
-        if int(battery_soc) < TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC:
+        if float(trusted_battery_soc) < TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC:
             raise HomeAssistantError(
                 "Write afgebroken: tijdelijke Off-grid-activatie is alleen toegestaan "
-                f"vanaf {TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC}% batterij-SOC "
-                f"(actueel {battery_soc}%)."
+                f"vanaf {TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC}% betrouwbare "
+                f"batterij-SOC (actueel {trusted_battery_soc:g}%)."
             )
 
     coordinator.settings_last_write_diagnostic = (
@@ -274,12 +280,13 @@ async def async_write_off_grid_minimum_soc_v066(
     )
     coordinator.settings_last_write_dependency_restored = result.dependency_restored
     coordinator.settings_last_write_diagnostic = (
-        f"SUCCES — Off-grid minimum SOC {result.previous_value}% → "
-        f"{result.verified_value}% geverifieerd; "
+        f"TUSSENCONTROLE — Off-grid minimum SOC {result.previous_value}% → "
+        f"{result.verified_value}% tijdens de write geverifieerd; "
         + (
             "Off-grid stond al AAN en is AAN gebleven."
             if result.dependency_was_active
             else "tijdelijke Off-grid activatie is afgerond en de oorspronkelijke work-mode is hersteld."
         )
+        + " Finale stabiliteitscontrole volgt nog."
     )
     coordinator.async_update_listeners()
