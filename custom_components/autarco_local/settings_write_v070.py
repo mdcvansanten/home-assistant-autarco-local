@@ -1,10 +1,16 @@
 """Guarded v0.7.0 hardware tests for newly opened settings.
 
-Only Reserve SOC is included initially. The transaction is deliberately much
-narrower than a production writer: it permits a one-percentage-point reversible
-test only in normal Self-use operation while Battery Reserve and Off-grid are
-both OFF, so the configured reserve target is not actively governing battery
-behaviour during the mapping/write test.
+Reserve SOC is the first new write candidate after Off-grid minimum SOC.
+Hardware testing showed that a direct write while Battery Reserve mode is OFF is
+accepted at Modbus level but immediately reads back the old value.  Therefore
+this validation step deliberately requires the user to enable Battery Reserve in
+the official/local inverter UI first.  Autarco Local does not toggle the parent
+mode yet; it only writes register 43024 and proves that the value persists.
+
+To avoid an unexpected reserve-maintenance grid charge during this parent-mode
+test, Allow Grid Charging must remain OFF.  Self-use must remain ON and Off-grid
+must remain OFF.  The complete work-mode register is checked before and after the
+write and must not change during the transaction.
 """
 
 from __future__ import annotations
@@ -23,13 +29,14 @@ MINIMUM_BATTERY_SOC_REGISTER = 43011
 SELF_USE_MODE_MASK = 1 << 0
 OFF_GRID_MODE_MASK = 1 << 2
 RESERVE_MODE_MASK = 1 << 4
+ALLOW_GRID_CHARGING_MASK = 1 << 5
 RESERVE_SOC_MIN = 20
 RESERVE_SOC_MAX = 100
 
 
 @dataclass(frozen=True, slots=True)
 class ReserveSocTestResult:
-    """Verified result of the one-step Reserve SOC hardware test."""
+    """Verified result of the one-step Reserve SOC parent-mode test."""
 
     previous: int
     requested: int
@@ -38,8 +45,11 @@ class ReserveSocTestResult:
     duration_ms: float
 
 
-def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int) -> ReserveSocTestResult:
-    """Perform a narrow one-point Reserve SOC write with persistent read-back."""
+def _reserve_soc_test_sync(
+    coordinator: AutarcoLocalCoordinator,
+    requested: int,
+) -> ReserveSocTestResult:
+    """Write Reserve SOC only while its parent mode is explicitly active."""
     client = coordinator.client
     requested = int(requested)
     if not RESERVE_SOC_MIN <= requested <= RESERVE_SOC_MAX:
@@ -59,22 +69,24 @@ def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int)
             MINIMUM_BATTERY_SOC_REGISTER,
             "Pre-write read Minimum battery SOC mislukt",
         )
-        mode_value = client._read_single_holding_locked(
+        original_mode_value = client._read_single_holding_locked(
             STORAGE_MODE_REGISTER,
             "Pre-write read work-mode mislukt",
         )
 
-        if not mode_value & SELF_USE_MODE_MASK:
+        if not original_mode_value & SELF_USE_MODE_MASK:
+            raise AutarcoConnectionError("Reserve SOC dependencytest vereist Self-use AAN")
+        if original_mode_value & OFF_GRID_MODE_MASK:
+            raise AutarcoConnectionError("Reserve SOC dependencytest vereist Off-grid UIT")
+        if not original_mode_value & RESERVE_MODE_MASK:
             raise AutarcoConnectionError(
-                "Reserve SOC hardwaretest vereist Self-use AAN"
+                "Reserve SOC dependencytest vereist Reserve battery mode AAN. "
+                "Activeer die eerst handmatig in de officiële Solis/Autarco lokale bediening."
             )
-        if mode_value & OFF_GRID_MODE_MASK:
+        if original_mode_value & ALLOW_GRID_CHARGING_MASK:
             raise AutarcoConnectionError(
-                "Reserve SOC hardwaretest vereist Off-grid UIT"
-            )
-        if mode_value & RESERVE_MODE_MASK:
-            raise AutarcoConnectionError(
-                "Reserve SOC hardwaretest vereist Reserve battery mode UIT"
+                "Reserve SOC dependencytest vereist Laden vanuit net UIT om onverwacht "
+                "reserve-onderhoud via het net te voorkomen"
             )
 
         if abs(requested - previous) != 1:
@@ -95,13 +107,18 @@ def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int)
             requested,
             "Reserve SOC write mislukt",
         )
-        client._verify_single_holding_locked(
-            RESERVE_SOC_REGISTER,
-            requested,
-            "Reserve SOC read-back kon niet worden bevestigd",
-            attempts=5,
-            delay=0.4,
-        )
+        try:
+            client._verify_single_holding_locked(
+                RESERVE_SOC_REGISTER,
+                requested,
+                "Reserve SOC read-back kon niet worden bevestigd",
+                attempts=5,
+                delay=0.4,
+            )
+        except AutarcoConnectionError as err:
+            raise AutarcoConnectionError(
+                f"Reserve SOC bleef niet op {requested}% terwijl Reserve mode AAN stond; {err}"
+            ) from err
 
         samples: list[int] = []
         for delay in (1.5, 2.5, 3.5):
@@ -117,6 +134,16 @@ def _reserve_soc_test_sync(coordinator: AutarcoLocalCoordinator, requested: int)
                     f"doel {requested}%, latere read-back {observed}%"
                 )
 
+        mode_after = client._read_single_holding_locked(
+            STORAGE_MODE_REGISTER,
+            "Work-mode eindcontrole mislukt",
+        )
+        if mode_after != original_mode_value:
+            raise AutarcoConnectionError(
+                "Reserve SOC is mogelijk gewijzigd, maar work-mode veranderde tijdens de test "
+                f"(voor {original_mode_value}, na {mode_after}); geen automatische rollback uitgevoerd"
+            )
+
         return ReserveSocTestResult(
             previous=previous,
             requested=requested,
@@ -131,7 +158,7 @@ async def async_test_reserve_soc_v070(
     coordinator: AutarcoLocalCoordinator,
     requested: int,
 ) -> ReserveSocTestResult:
-    """Execute the guarded test and refresh the settings snapshot afterwards."""
+    """Execute the guarded parent-mode test and refresh settings afterwards."""
     try:
         result = await hass.async_add_executor_job(
             _reserve_soc_test_sync,
@@ -139,7 +166,9 @@ async def async_test_reserve_soc_v070(
             int(requested),
         )
     except AutarcoConnectionError as err:
-        coordinator.settings_last_write_diagnostic = f"AFGEBROKEN — Reserve SOC test: {err}"
+        coordinator.settings_last_write_diagnostic = (
+            f"AFGEBROKEN — Reserve SOC dependencytest: {err}"
+        )
         coordinator.async_update_listeners()
         raise HomeAssistantError(f"Reserve SOC test afgebroken: {err}") from err
 
@@ -156,8 +185,8 @@ async def async_test_reserve_soc_v070(
         coordinator.settings_unsupported_blocks = fresh.unsupported_blocks
         coordinator.settings_last_write_diagnostic = (
             f"SUCCES — Reserve SOC {result.previous}% → {result.requested}% bleef stabiel "
-            f"in {len(result.stability_samples)} extra read-backs; Self-use bleef AAN, "
-            "Off-grid en Reserve mode bleven UIT."
+            f"in {len(result.stability_samples)} extra read-backs terwijl Reserve mode AAN bleef; "
+            "Autarco Local wijzigde geen work-mode."
         )
 
     coordinator.async_update_listeners()
