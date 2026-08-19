@@ -6,7 +6,7 @@ const PANEL_RESERVE_V070 = customElements.get("autarco-local-dashboard-panel");
 
 if (PANEL_RESERVE_V070) {
   const proto = PANEL_RESERVE_V070.prototype;
-  const VERSION = "0.7.0.3";
+  const VERSION = "0.7.0.4";
 
   if (proto._autarcoReserveWriteV070Version !== VERSION) {
     const previousSettingRow = proto._settingRow;
@@ -95,7 +95,7 @@ if (PANEL_RESERVE_V070) {
             </div>
 
             ${modeNote}
-            <div class="v070-reserve-warning ${validTarget ? "ok" : "warn"}"><span>${this._escape(targetNote)}</span></div>
+            <div id="v070-reserve-target-note" class="v070-reserve-warning ${validTarget ? "ok" : "warn"}"><span>${this._escape(targetNote)}</span></div>
 
             <h3>Autarco Local zal</h3>
             <ol>
@@ -205,9 +205,36 @@ if (PANEL_RESERVE_V070) {
       const target = this.shadowRoot && this.shadowRoot.querySelector("#v070-reserve-target");
       if (target) {
         target.addEventListener("input", () => {
-          this._v070ReserveTarget = Number(target.value);
+          const current = this._number("reserve_soc");
+          const minimum = this._number("minimum_battery_soc");
+          const floor = Math.max(20, Number.isFinite(minimum) ? minimum : 20);
+          const value = Number(target.value);
+          this._v070ReserveTarget = value;
           this._v070ReserveConfirmed = false;
-          this.render();
+          const valid = Number.isInteger(value)
+            && current != null
+            && Math.abs(value - current) === 1
+            && value >= floor
+            && value <= 100
+            && this._isOn("self_use_mode")
+            && !this._isOn("off_grid_mode")
+            && !this._isOn("reserve_battery_mode");
+          const confirmBox = this.shadowRoot.querySelector("#v070-confirm-reserve");
+          if (confirmBox) {
+            confirmBox.checked = false;
+            confirmBox.disabled = !valid;
+            const label = confirmBox.closest(".confirm");
+            if (label) label.classList.toggle("disabled", !valid);
+          }
+          const submitButton = this.shadowRoot.querySelector('[data-action="v070-confirm-reserve"]');
+          if (submitButton) submitButton.disabled = true;
+          const note = this.shadowRoot.querySelector("#v070-reserve-target-note");
+          if (note) {
+            note.className = `v070-reserve-warning ${valid ? "ok" : "warn"}`;
+            note.textContent = valid
+              ? `Teststap ${current}% → ${value}% is toegestaan.`
+              : `Kies voor deze hardwaretest precies één procentpunt hoger of lager dan ${current}%, met minimaal ${floor}%.`;
+          }
         });
       }
 
@@ -215,7 +242,8 @@ if (PANEL_RESERVE_V070) {
       if (confirm) {
         confirm.addEventListener("change", () => {
           this._v070ReserveConfirmed = Boolean(confirm.checked);
-          this.render();
+          const submitButton = this.shadowRoot.querySelector('[data-action="v070-confirm-reserve"]');
+          if (submitButton) submitButton.disabled = !this._v070ReserveConfirmed;
         });
       }
 
