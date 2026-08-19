@@ -48,11 +48,18 @@ async def async_write_off_grid_minimum_soc_v066_final(
     hass: HomeAssistant,
     coordinator: AutarcoLocalCoordinator,
     requested: int,
+    *,
+    trusted_battery_soc: float | None = None,
 ) -> None:
     """Write and require stable post-restore read-back of the target register."""
     requested = int(requested)
 
-    await async_write_off_grid_minimum_soc_v066(hass, coordinator, requested)
+    await async_write_off_grid_minimum_soc_v066(
+        hass,
+        coordinator,
+        requested,
+        trusted_battery_soc=trusted_battery_soc,
+    )
 
     elapsed = 0.0
     observed_values: list[int] = []
