@@ -1,6 +1,6 @@
 // Autarco Local frontend entry point.
 // Keep the proven v0.6.6 layers intact and add v0.7.0 generic settings/schedules,
-// the guarded Reserve SOC test and lock-label consistency as final layers.
+// the guarded Reserve SOC test, lock-label consistency and modal-state coordination as final layers.
 import "./autarco-dashboard-bootstrap.js?v=0.6.5.2";
 import "./autarco-dashboard-v066-patch.js?v=0.6.6.2";
 import "./autarco-dashboard-v066-diagnostics.js?v=0.6.6";
@@ -18,3 +18,4 @@ import "./autarco-dashboard-v066-relation-state.js?v=0.6.6.15";
 import "./autarco-dashboard-v070-settings.js?v=0.7.0.1";
 import "./autarco-dashboard-v070-reserve-write.js?v=0.7.0.4";
 import "./autarco-dashboard-v070-lock-labels.js?v=0.7.0.1";
+import "./autarco-dashboard-v070-modal-state.js?v=0.7.0.1";
