@@ -19,6 +19,7 @@ CONF_DEVICE_ID: Final = "device_id"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_RETRIES: Final = "retries"
+CONF_BATTERY_SOC_ENTITY: Final = "battery_soc_entity"
 PLATFORMS: Final = ["binary_sensor", "sensor", "switch"]
 
 # Runtime/input registers used by the existing monitoring layer.
