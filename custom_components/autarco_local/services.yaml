@@ -36,12 +36,11 @@ lock_settings:
 set_off_grid_minimum_soc:
   name: Set Off-grid minimum SOC
   description: >-
-    Guarded Expert write for the single hardware-validated Off-grid minimum SOC
-    setting (holding register 43137). Accepts the documented 10–100% range and
-    requires an active PIN unlock plus explicit confirmation. If Off-grid is
-    already active it remains active. If Autarco Local must temporarily activate
-    Off-grid, the original complete work-mode state is restored and verified
-    afterwards. No other setting register is opened by this service.
+    Guarded Expert write for the hardware-validated Off-grid minimum SOC setting
+    (holding register 43137). Accepts the documented 10–100% range and requires
+    an active PIN unlock plus explicit confirmation. If Off-grid is already active
+    it remains active. If Autarco Local must temporarily activate Off-grid, the
+    original complete work-mode state is restored and verified afterwards.
   fields:
     soc:
       name: Target SOC
@@ -61,6 +60,45 @@ set_off_grid_minimum_soc:
         Explicit confirmation that this Expert write may temporarily activate
         Off-grid when it was not already active and will then restore the
         original work-mode state.
+      required: true
+      example: true
+      selector:
+        boolean:
+    config_entry_id:
+      name: Config entry ID
+      description: >-
+        Optional. Required only when more than one Autarco Local config entry is
+        loaded.
+      required: false
+      selector:
+        text:
+
+test_reserve_soc:
+  name: Test Reserve SOC write
+  description: >-
+    v0.7.0 hardware-test only. Performs a one-percentage-point Reserve SOC write
+    and persistent read-back while Reserve battery mode is OFF. Requires an
+    active settings PIN unlock and explicit confirmation. The target must remain
+    at or above Minimum battery SOC. This service is deliberately narrower than
+    a production Reserve SOC writer.
+  fields:
+    soc:
+      name: Test target SOC
+      description: >-
+        Must differ from the fresh current Reserve SOC by exactly one percentage
+        point and remain within 20–100%.
+      required: true
+      example: 81
+      selector:
+        number:
+          min: 20
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    confirm:
+      name: Confirm hardware test
+      description: Explicitly confirm this reversible one-point hardware test.
       required: true
       example: true
       selector:
