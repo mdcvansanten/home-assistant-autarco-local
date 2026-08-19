@@ -6,7 +6,7 @@ const PANEL_RESERVE_V070 = customElements.get("autarco-local-dashboard-panel");
 
 if (PANEL_RESERVE_V070) {
   const proto = PANEL_RESERVE_V070.prototype;
-  const VERSION = "0.7.0.2";
+  const VERSION = "0.7.0.3";
 
   if (proto._autarcoReserveWriteV070Version !== VERSION) {
     const previousSettingRow = proto._settingRow;
@@ -42,6 +42,8 @@ if (PANEL_RESERVE_V070) {
     proto._v070ReservePreflight = function reservePreflight() {
       const current = this._number("reserve_soc");
       const minimum = this._number("minimum_battery_soc");
+      const selfUse = this._isOn("self_use_mode");
+      const offGrid = this._isOn("off_grid_mode");
       const reserveMode = this._isOn("reserve_battery_mode");
       if (this._v070ReserveTarget == null && current != null) this._v070ReserveTarget = current;
       const target = Number(this._v070ReserveTarget);
@@ -51,11 +53,19 @@ if (PANEL_RESERVE_V070) {
         && Math.abs(target - current) === 1
         && target >= floor
         && target <= 100;
-      const canConfirm = validTarget && !reserveMode && !this._v070ReserveBusy;
+      const modeSafe = selfUse && !offGrid && !reserveMode;
+      const canConfirm = validTarget && modeSafe && !this._v070ReserveBusy;
       const checked = Boolean(this._v070ReserveConfirmed) && canConfirm;
-      const modeNote = reserveMode
-        ? `<div class="v070-reserve-warning danger"><strong>Geblokkeerd</strong><span>Reserve mode staat AAN. De eerste hardwaretest wordt alleen uitgevoerd terwijl deze waarde niet actief is.</span></div>`
-        : `<div class="v070-reserve-warning ok"><strong>Reserve mode is UIT</strong><span>De Reserve SOC-doelwaarde is nu niet actief; dit is daarom een beperkte mapping/write-test.</span></div>`;
+      let modeNote;
+      if (!selfUse || offGrid || reserveMode) {
+        const reasons = [];
+        if (!selfUse) reasons.push("Self-use staat UIT");
+        if (offGrid) reasons.push("Off-grid staat AAN");
+        if (reserveMode) reasons.push("Reserve mode staat AAN");
+        modeNote = `<div class="v070-reserve-warning danger"><strong>Geblokkeerd</strong><span>${this._escape(reasons.join(" · "))}. De eerste Reserve SOC-test vereist Self-use AAN, Off-grid UIT en Reserve mode UIT.</span></div>`;
+      } else {
+        modeNote = `<div class="v070-reserve-warning ok"><strong>Veilige testsituatie</strong><span>Self-use is AAN; Off-grid en Reserve mode zijn UIT. Reserve SOC is daardoor niet actief als reserve-doelwaarde tijdens deze mapping/write-test.</span></div>`;
+      }
       const targetNote = current == null
         ? "Actuele Reserve SOC is niet beschikbaar."
         : validTarget
@@ -78,6 +88,8 @@ if (PANEL_RESERVE_V070) {
 
             <h3>Huidige situatie</h3>
             <div class="pregrid">
+              <div><span>Self-use</span><strong>${selfUse ? "On" : "Off"}</strong></div>
+              <div><span>Off-grid</span><strong>${offGrid ? "On" : "Off"}</strong></div>
               <div><span>Reserve battery mode</span><strong>${reserveMode ? "On" : "Off"}</strong></div>
               <div><span>Minimum battery SOC</span><strong>${minimum == null ? "—" : `${minimum}%`}</strong></div>
             </div>
@@ -87,8 +99,8 @@ if (PANEL_RESERVE_V070) {
 
             <h3>Autarco Local zal</h3>
             <ol>
-              <li>Reserve SOC, Minimum battery SOC en work-mode vers uitlezen.</li>
-              <li>Afbreken als Reserve mode ondertussen AAN staat.</li>
+              <li>Reserve SOC, Minimum battery SOC en complete work-mode vers uitlezen.</li>
+              <li>Afbreken tenzij Self-use AAN, Off-grid UIT en Reserve mode UIT zijn.</li>
               <li>Alleen register 43024 één procentpunt wijzigen.</li>
               <li>De doelwaarde direct via read-back bevestigen.</li>
               <li>Daarna drie extra stabiliteitsreads uitvoeren.</li>
@@ -136,7 +148,8 @@ if (PANEL_RESERVE_V070) {
       const current = this._number("reserve_soc");
       const target = Number(this._v070ReserveTarget);
       if (current == null || !Number.isInteger(target) || Math.abs(target - current) !== 1) return;
-      if (!this._v070ReserveConfirmed || this._isOn("reserve_battery_mode")) return;
+      if (!this._v070ReserveConfirmed) return;
+      if (!this._isOn("self_use_mode") || this._isOn("off_grid_mode") || this._isOn("reserve_battery_mode")) return;
 
       this._v070ReserveBusy = true;
       this.render();
