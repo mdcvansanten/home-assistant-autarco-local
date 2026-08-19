@@ -13,6 +13,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_BATTERY_SOC_ENTITY,
     CONF_DEVICE_ID,
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
@@ -132,7 +133,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Create the PIN/security options flow."""
+        """Create the security and safety-source options flow."""
         return AutarcoLocalOptionsFlow()
 
     async def async_step_user(
@@ -195,10 +196,11 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class AutarcoLocalOptionsFlow(OptionsFlow):
-    """Manage only the Settings PIN.
+    """Manage Settings security and the trusted battery-SOC source.
 
-    Inverter settings live in the Autarco Local dashboard. Keeping the native
-    Options flow PIN-only prevents two competing write/configuration surfaces.
+    Inverter settings live in the Autarco Local dashboard. The native Options
+    flow is reserved for local integration policy: PIN security and selection of
+    a Home Assistant battery-SOC entity that may be trusted by safety checks.
     """
 
     @staticmethod
@@ -209,30 +211,45 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
     def _password_text() -> selector.TextSelector:
         return selector.TextSelector(selector.TextSelectorConfig(type="password"))
 
+    @staticmethod
+    def _battery_soc_selector() -> selector.EntitySelector:
+        return selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor")
+        )
+
     def _security_schema(self) -> vol.Schema:
         status = (
             "PIN ingesteld — ontgrendelen kan vanuit Autarco Local → Instellingen"
             if pin_is_configured(self.config_entry)
             else "Nog geen PIN ingesteld — alle writes blijven geblokkeerd"
         )
-        return vol.Schema(
-            {
-                vol.Optional(PIN_STATUS_FIELD, default=status): self._readonly_text(),
-                vol.Optional(NEW_PIN_FIELD, default=""): self._password_text(),
-                vol.Optional(CLEAR_PIN_FIELD, default=False): selector.BooleanSelector(),
-            }
-        )
+        fields: dict[Any, Any] = {
+            vol.Optional(PIN_STATUS_FIELD, default=status): self._readonly_text(),
+            vol.Optional(NEW_PIN_FIELD, default=""): self._password_text(),
+            vol.Optional(CLEAR_PIN_FIELD, default=False): selector.BooleanSelector(),
+        }
+        current_soc_entity = self.config_entry.options.get(CONF_BATTERY_SOC_ENTITY)
+        if current_soc_entity:
+            fields[
+                vol.Optional(CONF_BATTERY_SOC_ENTITY, default=current_soc_entity)
+            ] = self._battery_soc_selector()
+        else:
+            fields[vol.Optional(CONF_BATTERY_SOC_ENTITY)] = self._battery_soc_selector()
+        return vol.Schema(fields)
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Set, replace or remove the PIN; never write inverter settings here."""
+        """Manage PIN and trusted battery-SOC source; never write inverter settings here."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             options = dict(self.config_entry.options)
             new_pin = str(user_input.get(NEW_PIN_FIELD, "")).strip()
             clear_pin = bool(user_input.get(CLEAR_PIN_FIELD, False))
+            battery_soc_entity = str(
+                user_input.get(CONF_BATTERY_SOC_ENTITY, "") or ""
+            ).strip()
 
             if new_pin and clear_pin:
                 errors["base"] = "pin_conflict"
@@ -248,6 +265,11 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             elif clear_pin:
                 options.pop(CONF_SETTINGS_PIN_SALT, None)
                 options.pop(CONF_SETTINGS_PIN_HASH, None)
+
+            if battery_soc_entity:
+                options[CONF_BATTERY_SOC_ENTITY] = battery_soc_entity
+            else:
+                options.pop(CONF_BATTERY_SOC_ENTITY, None)
 
             if not errors:
                 return self.async_create_entry(data=options)
