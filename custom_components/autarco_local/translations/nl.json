@@ -44,17 +44,19 @@
     },
     "step": {
       "init": {
-        "title": "Instellingenbeveiliging",
-        "description": "Beheer hier alleen de PIN waarmee writes worden ontgrendeld. Omvormerinstellingen bekijk en wijzig je via **Autarco Local → Instellingen**.",
+        "title": "Instellingenbeveiliging en veiligheidsbron",
+        "description": "Beheer hier de PIN waarmee writes worden ontgrendeld en kies welke Home Assistant batterij-SOC sensor Autarco Local voor veiligheidscontroles mag vertrouwen. Omvormerinstellingen bekijk en wijzig je via **Autarco Local → Instellingen**.",
         "data": {
           "settings_pin_status": "PIN-status",
           "settings_new_pin": "Nieuwe PIN",
-          "settings_clear_pin": "PIN verwijderen"
+          "settings_clear_pin": "PIN verwijderen",
+          "battery_soc_entity": "Betrouwbare batterij-SOC bron"
         },
         "data_description": {
           "settings_pin_status": "Laat zien of er een instellingen-PIN is ingesteld.",
           "settings_new_pin": "Stel de PIN in of vervang hem. Gebruik 4 tot en met 8 cijfers.",
-          "settings_clear_pin": "Verwijder de ingestelde PIN. Writes blijven daarna geblokkeerd totdat opnieuw een PIN is ingesteld."
+          "settings_clear_pin": "Verwijder de ingestelde PIN. Writes blijven daarna geblokkeerd totdat opnieuw een PIN is ingesteld.",
+          "battery_soc_entity": "Kies een Home Assistant sensor die de werkelijke batterij-SOC in % toont. Voor jouw installatie kan dit de Dyness SOC-sensor zijn. Deze waarde wordt alleen gebruikt als veiligheidsvoorwaarde voor tijdelijke Off-grid-activatie."
         }
       }
     }
