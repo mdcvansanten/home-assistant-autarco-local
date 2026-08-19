@@ -99,13 +99,14 @@ if (PANEL_SAFETY_V066) {
 
       const offGridOn = this._isOn("off_grid_mode");
       const info = sourceInfo(this);
-      const sourceValue = info.valid ? `${info.value:g}` : null;
 
       // Replace the known-untrusted inverter SOC card with the explicitly chosen
       // Home Assistant safety source. Keep the source name visible so it is
       // obvious which integration supplies the decision value.
       const displayValue = info.valid ? `${info.value}%` : "Niet beschikbaar";
-      const displayName = info.valid ? `Veiligheids-SOC · ${info.name}` : "Veiligheids-SOC";
+      const displayName = info.valid
+        ? `Veiligheids-SOC · ${info.name}`
+        : "Veiligheids-SOC";
       html = html.replace(
         /<div><span>Live batterij-SOC(?: \(onbevestigd\))?<\/span><strong>[\s\S]*?<\/strong><\/div>/,
         `<div><span>${this._escape(displayName)}</span><strong>${this._escape(displayValue)}</strong></div>`
