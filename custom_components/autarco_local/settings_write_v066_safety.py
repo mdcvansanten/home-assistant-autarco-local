@@ -1,12 +1,12 @@
-"""Safety gate for the v0.6.6 Off-grid minimum SOC hardware test.
+"""Safety gate for the validated Off-grid minimum SOC write path.
 
 The inverter-derived battery-SOC register is not trusted as a safety prerequisite
 because hardware testing showed a plausible 99% while the Dyness towers were not
 actually connected to the Connectbox.
 
 Instead, the user explicitly selects a Home Assistant sensor as the trusted
-battery-SOC source. This keeps the design vendor-neutral: today that can be the
-Dyness SOC sensor, while another battery integration can be selected later.
+battery-SOC source. v0.7.0 additionally runs the brand-neutral configuration
+relationship engine before a physical write is allowed.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from homeassistant.exceptions import HomeAssistantError
 
 from .const import CONF_BATTERY_SOC_ENTITY
 from .coordinator import AutarcoLocalCoordinator
+from .energy_logic import configuration_health
 from .modbus_client import AutarcoConnectionError, OFF_GRID_MODE_MASK, STORAGE_MODE_REGISTER
 from .settings_write_v066 import TEMPORARY_OFF_GRID_MINIMUM_BATTERY_SOC
 from .settings_write_v066_final_verify import (
@@ -70,12 +71,35 @@ def _trusted_battery_soc(
     return value, entity_id
 
 
+def _guard_configuration_relations(
+    coordinator: AutarcoLocalCoordinator,
+    registers: dict[int, int],
+) -> None:
+    """Block physical writes when a proven cross-setting rule is violated."""
+    health = configuration_health(registers)
+    if health["state"] != "blocked":
+        return
+
+    blocking = [
+        item for item in health["findings"] if item.get("severity") == "blocking"
+    ]
+    summary = "; ".join(str(item.get("message")) for item in blocking)
+    coordinator.settings_last_write_diagnostic = (
+        "AFGEBROKEN — gekoppelde instellingen zijn niet consistent: " + summary
+    )
+    coordinator.async_update_listeners()
+    raise HomeAssistantError(
+        "Write geblokkeerd door een configuratieconflict tussen gekoppelde instellingen. "
+        + summary
+    )
+
+
 async def async_write_off_grid_minimum_soc_v066_safe(
     hass: HomeAssistant,
     coordinator: AutarcoLocalCoordinator,
     requested: int,
 ) -> None:
-    """Validate the trusted SOC source before any temporary Off-grid activation."""
+    """Validate relations and the trusted SOC source before a physical write."""
     try:
         fresh = await hass.async_add_executor_job(coordinator.client.read_settings)
     except AutarcoConnectionError as err:
@@ -90,6 +114,11 @@ async def async_write_off_grid_minimum_soc_v066_safe(
     coordinator.settings_data = fresh.registers
     coordinator.settings_read_time_ms = fresh.read_duration_ms
     coordinator.settings_unsupported_blocks = fresh.unsupported_blocks
+
+    # v0.7.0: a write cannot bypass a proven relationship rule merely because
+    # the target register itself is valid. This is the foundation for safe
+    # multi-setting scenarios.
+    _guard_configuration_relations(coordinator, fresh.registers)
 
     mode_value = fresh.registers.get(STORAGE_MODE_REGISTER)
     if mode_value is None:
