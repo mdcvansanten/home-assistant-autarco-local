@@ -1,8 +1,7 @@
-// Autarco Local v0.6.6 frontend entry point.
-// Start with the v0.6.5 collision-safe bootstrap, then layer the v0.6.6
-// dashboard/diagnostics/data-quality/scenario, single-setting and UI-state extensions.
-// Stability, transaction UX, unlock guard, hardware safety, flow UX, concise
-// dependency warnings, cross-setting relation status and relation-help state are intentionally last.
+// Autarco Local v0.7.0 frontend entry point.
+// v0.6.6 remains the proven dashboard/write baseline. v0.7.0 layers the
+// scenario-first UX and relation-aware settings model on top without enabling
+// unvalidated physical writes.
 import "./autarco-dashboard-bootstrap.js?v=0.6.5.2";
 import "./autarco-dashboard-v066-patch.js?v=0.6.6.2";
 import "./autarco-dashboard-v066-diagnostics.js?v=0.6.6";
@@ -17,3 +16,4 @@ import "./autarco-dashboard-v066-flow-ux.js?v=0.6.6.12";
 import "./autarco-dashboard-v066-setting-warnings.js?v=0.6.6.13";
 import "./autarco-dashboard-v066-relation-status.js?v=0.6.6.14";
 import "./autarco-dashboard-v066-relation-state.js?v=0.6.6.15";
+import "./autarco-dashboard-v070-scenarios.js?v=0.7.0.1";

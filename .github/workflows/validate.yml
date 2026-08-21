@@ -35,6 +35,8 @@ jobs:
           node-version: "22"
       - name: Compile Python
         run: python -m compileall -q custom_components/autarco_local
+      - name: Test scenario engine
+        run: python -m unittest discover -s tests -p 'test_*.py'
       - name: Validate JSON
         run: |
           python -m json.tool custom_components/autarco_local/manifest.json >/dev/null
