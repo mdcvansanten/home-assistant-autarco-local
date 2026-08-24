@@ -21,6 +21,17 @@ async def async_get_config_entry_diagnostics(hass, entry):
             str(coordinator.last_exception) if coordinator.last_exception else None
         ),
         "network_health": coordinator.network_health,
+        "polling": {
+            "strategy": getattr(
+                coordinator.client, "last_runtime_poll_strategy", "legacy_full_range"
+            ),
+            "last_request_count": getattr(
+                coordinator.client, "last_runtime_request_count", None
+            ),
+            "fallback_groups": list(
+                getattr(coordinator.client, "last_runtime_fallback_groups", ())
+            ),
+        },
         "device_profile": AUTARCO_LH_MII_PROFILE.as_dict(),
         "configuration": {
             "normalized_settings": normalized_settings(setting_registers),
