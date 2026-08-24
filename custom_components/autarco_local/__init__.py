@@ -11,6 +11,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
 from .coordinator import AutarcoLocalCoordinator
+from .profiled_polling import install_profiled_runtime_polling
 from .settings_panel import async_register_settings_panel, unregister_settings_panel
 from .settings_security import (
     clear_entry_unlocks,
@@ -118,8 +119,6 @@ async def _async_handle_unlock_settings(
             "en stel eerst een PIN van 4 tot 8 cijfers in."
         )
 
-    # PBKDF2 verification is deliberately moved off Home Assistant's event loop.
-    # This keeps the UI responsive even on slower Raspberry Pi hardware.
     pin_valid = await hass.async_add_executor_job(
         verify_pin,
         entry,
@@ -201,6 +200,7 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up integration-level Autarco Local services."""
+    install_profiled_runtime_polling()
     _async_register_services(hass)
     return True
 
@@ -210,9 +210,8 @@ async def async_setup_entry(
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
     """Set up Autarco Local from a config entry."""
-    # Register the UI before talking to the logger. This keeps the Autarco Local
-    # dashboard/diagnostics route available when the LAN stick is temporarily
-    # unavailable during Home Assistant startup.
+    install_profiled_runtime_polling()
+
     await async_register_settings_panel(hass, entry.entry_id)
 
     coordinator = AutarcoLocalCoordinator(hass, entry)
