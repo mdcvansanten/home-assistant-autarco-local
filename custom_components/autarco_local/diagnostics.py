@@ -5,6 +5,7 @@ from homeassistant.components.diagnostics import async_redact_data
 
 from .device_profile import AUTARCO_LH_MII_PROFILE
 from .energy_logic import configuration_health, evaluate_scenarios, normalized_settings
+from .write_readiness import readiness_summary
 
 TO_REDACT = {"host"}
 
@@ -38,6 +39,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
             "health": configuration_health(setting_registers),
             "scenarios": evaluate_scenarios(setting_registers),
         },
+        "write_readiness": readiness_summary(),
         "runtime_register_count": len(runtime_registers),
         "runtime_registers": {
             str(key): value for key, value in sorted(runtime_registers.items())
