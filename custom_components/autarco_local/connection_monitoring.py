@@ -8,7 +8,7 @@ without opening an extra socket.
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 import socket
 import time
 from typing import Any
@@ -94,7 +94,8 @@ def _record(
     elif tcp_reachable is False:
         coordinator.connection_monitor_last_tcp_failure_at = now
 
-    # Store transitions and failures; do not fill history with identical healthy polls.
+    # Store transitions and every failure/degraded poll; do not fill history with
+    # identical healthy polls.
     if classification != previous_classification or state != "healthy":
         coordinator.connection_monitor_events.append(
             {
@@ -160,41 +161,50 @@ def install_connection_monitoring() -> None:
 
     original_update = AutarcoLocalCoordinator._async_update_data
 
+    async def classify_failure(self: AutarcoLocalCoordinator, *, hard: bool) -> None:
+        self.connection_monitor_last_modbus_failure_at = dt_util.utcnow()
+        host = str(self.client._settings.host)
+        port = int(self.client._settings.port)
+        probe = await self.hass.async_add_executor_job(probe_tcp, host, port, 2.0)
+        failed_group = getattr(self.client, "last_runtime_failed_group", None)
+        if probe.reachable:
+            classification = "tcp_up_modbus_failed"
+            stage = "modbus_protocol_or_logger"
+        else:
+            classification = "tcp_502_down"
+            stage = "network_or_logger_tcp"
+        _record(
+            self,
+            state="failed" if hard else "degraded",
+            stage=stage,
+            classification=classification,
+            error=self.last_error,
+            tcp_reachable=probe.reachable,
+            tcp_probe_ms=probe.duration_ms,
+            failed_group=failed_group,
+        )
+        self.async_update_listeners()
+
     async def monitored_update(self: AutarcoLocalCoordinator):
         _ensure_state(self)
         self.connection_monitor_stage = "runtime_modbus_poll"
+        failed_before = self.failed_polls
         try:
             data = await original_update(self)
         except UpdateFailed:
-            now = dt_util.utcnow()
-            self.connection_monitor_last_modbus_failure_at = now
-            host = str(self.client._settings.host)
-            port = int(self.client._settings.port)
-            probe = await self.hass.async_add_executor_job(probe_tcp, host, port, 2.0)
-            failed_group = getattr(self.client, "last_runtime_failed_group", None)
-            if probe.reachable:
-                classification = "tcp_up_modbus_failed"
-                stage = "modbus_protocol_or_logger"
-            else:
-                classification = "tcp_502_down"
-                stage = "network_or_logger_tcp"
-            _record(
-                self,
-                state="failed",
-                stage=stage,
-                classification=classification,
-                error=self.last_error,
-                tcp_reachable=probe.reachable,
-                tcp_probe_ms=probe.duration_ms,
-                failed_group=failed_group,
-            )
-            self.async_update_listeners()
+            await classify_failure(self, hard=True)
             raise
         else:
+            # The coordinator deliberately suppresses the first short outages and
+            # returns the previous snapshot. Detect those via failed_polls so they
+            # remain visible to diagnostics.
+            if self.failed_polls > failed_before:
+                await classify_failure(self, hard=False)
+                return data
+
             now = dt_util.utcnow()
             self.connection_monitor_last_modbus_success_at = now
             self.connection_monitor_last_tcp_success_at = now
-            failed_group = getattr(self.client, "last_runtime_failed_group", None)
             _record(
                 self,
                 state="healthy",
@@ -202,7 +212,7 @@ def install_connection_monitoring() -> None:
                 classification="modbus_healthy",
                 error=None,
                 tcp_reachable=True,
-                failed_group=failed_group,
+                failed_group=None,
             )
             return data
 
