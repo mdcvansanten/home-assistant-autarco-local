@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType
 
+from .connection_monitoring import install_connection_monitoring
 from .const import DOMAIN, PLATFORMS
 from .coordinator import AutarcoLocalCoordinator
 from .profiled_polling import install_profiled_runtime_polling
@@ -198,9 +199,15 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.data[DATA_SERVICES_REGISTERED] = True
 
 
+def _install_runtime_layers() -> None:
+    """Install polling and deep connection monitoring patches once."""
+    install_profiled_runtime_polling()
+    install_connection_monitoring()
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up integration-level Autarco Local services."""
-    install_profiled_runtime_polling()
+    _install_runtime_layers()
     _async_register_services(hass)
     return True
 
@@ -210,7 +217,7 @@ async def async_setup_entry(
     entry: AutarcoLocalConfigEntry,
 ) -> bool:
     """Set up Autarco Local from a config entry."""
-    install_profiled_runtime_polling()
+    _install_runtime_layers()
 
     await async_register_settings_panel(hass, entry.entry_id)
 
