@@ -58,13 +58,18 @@ if (PANEL_V071) {
     const section = this.shadowRoot.querySelector(".settings-section");
     if (!section) return;
 
-    // Move the already-rendered scenario block to the top instead of duplicating
-    // scenario definitions in another frontend layer.
+    // v0.7.0 could render the scenario block both in the base settings output and
+    // in the scenario extension. Keep exactly one instance before moving it to
+    // the scenario-first position. This also cleans up a duplicated block from a
+    // cached/older frontend composition after the next render.
     const details = Array.from(section.querySelectorAll("details"));
-    const scenario = details.find((item) => {
+    const scenarios = details.filter((item) => {
       const summary = item.querySelector("summary");
       return summary && String(summary.textContent || "").toLowerCase().includes("scenario");
     });
+    const scenario = scenarios[0] || null;
+    scenarios.slice(1).forEach((duplicate) => duplicate.remove());
+
     const lockbar = section.querySelector(".lockbar");
     if (scenario && lockbar) {
       scenario.open = true;
@@ -73,7 +78,8 @@ if (PANEL_V071) {
     }
 
     // Installer/system settings start collapsed on every fresh panel instance.
-    const installer = details.find((item) => {
+    const remainingDetails = Array.from(section.querySelectorAll("details"));
+    const installer = remainingDetails.find((item) => {
       const summary = item.querySelector("summary");
       return summary && String(summary.textContent || "").toLowerCase().includes("installer-/systeeminstellingen");
     });
