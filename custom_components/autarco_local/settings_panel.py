@@ -12,7 +12,7 @@ from .const import CONF_BATTERY_SOC_ENTITY, DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.7.0.1"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.7.1.2"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 _FRONTEND_FILES = (
@@ -32,18 +32,14 @@ _FRONTEND_FILES = (
     "autarco-dashboard-v066-relation-status.js",
     "autarco-dashboard-v066-relation-state.js",
     "autarco-dashboard-v070-scenarios.js",
+    "autarco-dashboard-v071-ux.js",
+    "autarco-dashboard-v071-connection-monitor.js",
     "autarco-dashboard-entry.js",
 )
 
 
 async def async_register_settings_panel(hass: HomeAssistant, entry_id: str) -> None:
-    """Register the Autarco Local tabbed dashboard once.
-
-    The custom sidebar panel is deliberately kept separate from Home Assistant's
-    native integration Options flow. The integration gear manages security and
-    the trusted battery-SOC source; inverter settings live exclusively in the
-    Autarco Local dashboard.
-    """
+    """Register the Autarco Local tabbed dashboard once."""
     state = hass.data.setdefault(
         DATA_PANEL,
         {
