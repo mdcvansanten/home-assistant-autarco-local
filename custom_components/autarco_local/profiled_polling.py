@@ -49,13 +49,7 @@ def _store_values(registers: dict[int, int], start: int, count: int, result) -> 
 
 
 def _profiled_read_once_locked(self: AutarcoModbusClient) -> tuple[dict[int, int], list[str]]:
-    """Read the validated Autarco runtime profile using four logical groups.
-
-    Normal operation uses one Modbus request per group. If the inverter rejects a
-    broad request, only that group falls back to <=10-register reads. This keeps
-    compatibility with the proven v0.6.x behaviour without paying its latency on
-    every poll.
-    """
+    """Read the validated runtime profile and record the active/failed group."""
     client = self._client
     if client is None or not client.connected:
         raise AutarcoConnectionError("Modbus-socket is niet verbonden")
@@ -64,9 +58,15 @@ def _profiled_read_once_locked(self: AutarcoModbusClient) -> tuple[dict[int, int
     unsupported: list[str] = []
     requests = 0
     fallback_groups: list[str] = []
+    self.last_runtime_failed_group = None
 
     for group in AUTARCO_LH_MII_PROFILE.runtime_groups:
-        result = _read_range(self, group.start, group.count)
+        self.current_runtime_group = group.key
+        try:
+            result = _read_range(self, group.start, group.count)
+        except AutarcoConnectionError:
+            self.last_runtime_failed_group = group.key
+            raise
         requests += 1
         if _store_values(registers, group.start, group.count, result):
             continue
@@ -82,7 +82,12 @@ def _profiled_read_once_locked(self: AutarcoModbusClient) -> tuple[dict[int, int
         while start <= group.end:
             count = min(REGISTER_CHUNK_SIZE, group.end - start + 1)
             end = start + count - 1
-            chunk_result = _read_range(self, start, count)
+            self.current_runtime_group = f"{group.key}:{start}-{end}"
+            try:
+                chunk_result = _read_range(self, start, count)
+            except AutarcoConnectionError:
+                self.last_runtime_failed_group = self.current_runtime_group
+                raise
             requests += 1
             if not _store_values(registers, start, count, chunk_result):
                 unsupported.append(f"{start}-{end}")
@@ -90,8 +95,10 @@ def _profiled_read_once_locked(self: AutarcoModbusClient) -> tuple[dict[int, int
             start += count
 
     if not registers:
+        self.last_runtime_failed_group = self.current_runtime_group
         raise AutarcoConnectionError("Geen registers gelezen")
 
+    self.current_runtime_group = None
     self.last_runtime_request_count = requests
     self.last_runtime_poll_strategy = "grouped_with_fallback" if fallback_groups else "grouped"
     self.last_runtime_fallback_groups = tuple(fallback_groups)
