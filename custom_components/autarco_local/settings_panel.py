@@ -12,7 +12,7 @@ from .const import CONF_BATTERY_SOC_ENTITY, DOMAIN
 
 PANEL_COMPONENT = "autarco-local-dashboard-panel"
 PANEL_URL_PATH = "autarco-local"
-PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.7.1.2"
+PANEL_MODULE_URL = "/autarco_local/frontend/autarco-dashboard-entry.js?v=0.7.2.1"
 DATA_PANEL = f"{DOMAIN}_dashboard_panel"
 
 _FRONTEND_FILES = (
@@ -34,6 +34,7 @@ _FRONTEND_FILES = (
     "autarco-dashboard-v070-scenarios.js",
     "autarco-dashboard-v071-ux.js",
     "autarco-dashboard-v071-connection-monitor.js",
+    "autarco-dashboard-v072-app.js",
     "autarco-dashboard-entry.js",
 )
 
