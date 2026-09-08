@@ -20,3 +20,4 @@ import "./autarco-dashboard-v070-scenarios.js?v=0.7.0.1";
 import "./autarco-dashboard-v071-ux.js?v=0.7.1.2";
 import "./autarco-dashboard-v071-connection-monitor.js?v=0.7.1.2";
 import "./autarco-dashboard-v072-app.js?v=0.7.2.1";
+import "./autarco-dashboard-v072-flow.js?v=0.7.2.2";
