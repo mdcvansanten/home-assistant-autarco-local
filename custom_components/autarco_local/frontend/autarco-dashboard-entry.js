@@ -1,7 +1,8 @@
-// Autarco Local v0.7.2 frontend entry point.
+// Autarco Local v0.7.3 frontend entry point.
 // v0.6.6 remains the proven write baseline. v0.7.0 adds the scenario model;
 // v0.7.1 adds field-test UX and deep connection diagnostics;
-// v0.7.2 adds the app-style live dashboard, history and TOU planner UX.
+// v0.7.2 adds the app-style live dashboard, history and TOU planner UX;
+// v0.7.3 adds read-only SOC jump/drop monitoring and visual markers.
 import "./autarco-dashboard-bootstrap.js?v=0.6.5.2";
 import "./autarco-dashboard-v066-patch.js?v=0.6.6.2";
 import "./autarco-dashboard-v066-diagnostics.js?v=0.6.6";
@@ -21,3 +22,4 @@ import "./autarco-dashboard-v071-ux.js?v=0.7.1.2";
 import "./autarco-dashboard-v071-connection-monitor.js?v=0.7.1.2";
 import "./autarco-dashboard-v072-app.js?v=0.7.2.1";
 import "./autarco-dashboard-v072-flow.js?v=0.7.2.2";
+import "./autarco-dashboard-v073-soc-monitor.js?v=0.7.3.1";
