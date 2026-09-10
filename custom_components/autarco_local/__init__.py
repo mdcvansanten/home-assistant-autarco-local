@@ -29,6 +29,7 @@ from .settings_write_v066 import (
 from .settings_write_v066_safety import (
     async_write_off_grid_minimum_soc_v066_safe,
 )
+from .soc_monitoring import install_soc_monitoring
 
 type AutarcoLocalConfigEntry = ConfigEntry[AutarcoLocalCoordinator]
 
@@ -200,9 +201,10 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
 
 def _install_runtime_layers() -> None:
-    """Install polling and deep connection monitoring patches once."""
+    """Install polling, connection and SOC monitoring patches once."""
     install_profiled_runtime_polling()
     install_connection_monitoring()
+    install_soc_monitoring()
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:

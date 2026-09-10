@@ -6,6 +6,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from .connection_monitoring import snapshot as connection_monitor_snapshot
 from .device_profile import AUTARCO_LH_MII_PROFILE
 from .energy_logic import configuration_health, evaluate_scenarios, normalized_settings
+from .soc_monitoring import snapshot as soc_monitor_snapshot
 from .write_readiness import readiness_summary
 
 TO_REDACT = {"host"}
@@ -24,6 +25,7 @@ async def async_get_config_entry_diagnostics(hass, entry):
         ),
         "network_health": coordinator.network_health,
         "deep_connection_monitor": connection_monitor_snapshot(coordinator),
+        "soc_jump_drop_monitor": soc_monitor_snapshot(coordinator),
         "polling": {
             "strategy": getattr(
                 coordinator.client, "last_runtime_poll_strategy", "legacy_full_range"
