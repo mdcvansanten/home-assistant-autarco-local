@@ -10,12 +10,17 @@ from collections import deque
 from datetime import datetime
 from typing import Any
 
-from homeassistant.helpers.update_coordinator import UpdateFailed
+from homeassistant.components.sensor import SensorEntity
+from homeassistant.const import EntityCategory
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.update_coordinator import CoordinatorEntity, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .const import DOMAIN
 from .coordinator import AutarcoLocalCoordinator
 
 _INSTALLED = False
+_SENSOR_PATCHED = False
 SOC_REGISTER = 33139
 BATTERY_DIRECTION_REGISTER = 33135
 BATTERY_POWER_HIGH_REGISTER = 33149
@@ -28,7 +33,7 @@ def _battery_power(data: dict[int, int]) -> int | None:
     if BATTERY_POWER_HIGH_REGISTER not in data or BATTERY_POWER_LOW_REGISTER not in data:
         return None
     value = (data[BATTERY_POWER_HIGH_REGISTER] << 16) | data[BATTERY_POWER_LOW_REGISTER]
-    # Keep the same sign convention as sensor.py: negative = charging, positive = discharging.
+    # Same sign convention as sensor.py: negative = charging, positive = discharging.
     if data.get(BATTERY_DIRECTION_REGISTER) == 1:
         value *= -1
     return value
@@ -128,9 +133,61 @@ def _observe(coordinator: AutarcoLocalCoordinator, data: dict[int, int]) -> None
     )
 
 
+class SocChangeMonitorSensor(CoordinatorEntity, SensorEntity):
+    """Recorder-visible SOC jump/drop monitor."""
+
+    _attr_has_entity_name = True
+    _attr_name = "SOC jump/drop monitor"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_icon = "mdi:battery-alert-variant-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{entry.entry_id}_soc_jump_drop_monitor"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name=entry.title,
+            manufacturer="Autarco",
+            model="S2.LH-MII (Modbus TCP)",
+        )
+
+    @property
+    def native_value(self):
+        return snapshot(self.coordinator)["state"]
+
+    @property
+    def extra_state_attributes(self):
+        monitor = snapshot(self.coordinator)
+        return {
+            "threshold_percent": monitor["threshold_percent"],
+            "max_interval_seconds": monitor["max_interval_seconds"],
+            "event_count": monitor["event_count"],
+            "last_event": monitor["last_event"],
+            "events": monitor["events"][-20:],
+        }
+
+
+def _install_sensor_entity() -> None:
+    """Append the diagnostic sensor to the existing sensor platform once."""
+    global _SENSOR_PATCHED
+    if _SENSOR_PATCHED:
+        return
+    from . import sensor as sensor_platform
+
+    original_setup_entry = sensor_platform.async_setup_entry
+
+    async def setup_entry_with_soc_monitor(hass, entry, async_add_entities):
+        await original_setup_entry(hass, entry, async_add_entities)
+        async_add_entities([SocChangeMonitorSensor(entry.runtime_data, entry)])
+
+    sensor_platform.async_setup_entry = setup_entry_with_soc_monitor
+    _SENSOR_PATCHED = True
+
+
 def install_soc_monitoring() -> None:
     """Wrap the already instrumented coordinator update path exactly once."""
     global _INSTALLED
+    _install_sensor_entity()
     if _INSTALLED:
         return
 
