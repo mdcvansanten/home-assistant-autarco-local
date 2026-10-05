@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.7.0b1 — Bluetooth transport beta
+
+- Persistent BLE transport through HA's shared Bluetooth manager; serialized,
+  CRC-validated Modbus 03/04 reads and connection reset after timeout.
+- BLE/TCP reconfiguration preserves entity identity and resets telemetry validation
+  when changing connection identity.
+- Separate settings polling, explicit freshness and missing-register handling,
+  pause/resume handoff for local phone access, telemetry snapshot response service.
+- BLE writes and automated EMS actuation remain blocked pending hardware validation.
+- Standalone read-only probe and checked, reversible package installation.
+
 ## 0.6.5
 
 - Replaced the separate v0.6.4 Settings Center page with one Autarco Local dashboard shell containing `Overzicht`, `PV`, `Batterij`, `Diagnose` and `Instellingen` tabs.

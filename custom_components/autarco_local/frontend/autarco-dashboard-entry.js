@@ -17,3 +17,4 @@ import "./autarco-dashboard-v066-flow-ux.js?v=0.6.6.12";
 import "./autarco-dashboard-v066-setting-warnings.js?v=0.6.6.13";
 import "./autarco-dashboard-v066-relation-status.js?v=0.6.6.14";
 import "./autarco-dashboard-v066-relation-state.js?v=0.6.6.15";
+import "./autarco-dashboard-ble.js?v=0.7.0b1";

@@ -1,5 +1,12 @@
 # Autarco Local
 
+# Bluetooth beta
+
+De ontwikkelversie **0.7.0b1** ondersteunt een blijvende Bluetooth LE-verbinding
+naast de bestaande TCP-optie. Gebruik dezelfde Autarco Local-config entry via
+**Herconfigureren**. BLE-instellingen zijn in deze beta alleen-lezen.
+Zie [installatie, fysieke test en EMS-koppeling](docs/bluetooth-beta.md).
+
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
 Lokale Home Assistant-integratie voor de Autarco hybride omvormer in de thuisinstallatie, met Autarco LH-MII als huidige gevalideerde hardwarelijn.

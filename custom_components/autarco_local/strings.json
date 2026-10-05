@@ -1,7 +1,7 @@
 {
   "config": {
     "abort": {
-      "already_configured": "This IP address and port are already configured.",
+      "already_configured": "This connection is already configured.",
       "reconfigure_successful": "Autarco Local was reconfigured successfully."
     },
     "error": {
@@ -17,10 +17,15 @@
           "port": "Port",
           "scan_interval": "Scan interval",
           "timeout": "Timeout",
-          "retries": "Retry count"
+          "retries": "Retry count",
+          "transport": "Connection transport",
+          "ble_address": "Bluetooth address"
         },
-        "description": "Change the connection and verify it with a read-only Modbus request.",
-        "title": "Reconfigure Autarco Local"
+        "description": "Choose Modbus TCP or Bluetooth LE. For BLE enter the Bluetooth address; IP and port are ignored. Validation only reads temperature. Reconfiguration keeps existing entities.",
+        "title": "Reconfigure Autarco Local",
+        "data_description": {
+          "device_id": "For BLE: expected response unit (tested inverter: 1). Requests use FE."
+        }
       },
       "user": {
         "data": {
@@ -30,10 +35,15 @@
           "port": "Port",
           "scan_interval": "Scan interval",
           "timeout": "Timeout",
-          "retries": "Retry count"
+          "retries": "Retry count",
+          "transport": "Connection transport",
+          "ble_address": "Bluetooth address"
         },
-        "description": "Creates only a read-only connection over Modbus TCP.",
-        "title": "Add Autarco Local"
+        "description": "Choose Modbus TCP or Bluetooth LE. For BLE enter the Bluetooth address; IP and port are ignored. Validation only reads temperature. Reconfiguration keeps existing entities.",
+        "title": "Add Autarco Local",
+        "data_description": {
+          "device_id": "For BLE: expected response unit (tested inverter: 1). Requests use FE."
+        }
       }
     }
   },
@@ -50,104 +60,283 @@
           "settings_pin_status": "PIN status",
           "settings_new_pin": "New PIN",
           "settings_clear_pin": "Remove PIN",
-          "battery_soc_entity": "Trusted battery SOC source"
+          "battery_soc_entity": "Trusted battery SOC source",
+          "runtime_mapping_validated": "EMS telemetry values and signs independently validated"
         },
         "data_description": {
           "settings_pin_status": "Shows whether a Settings PIN is configured.",
           "settings_new_pin": "Set or replace the PIN. Use 4 to 8 digits.",
           "settings_clear_pin": "Remove the configured PIN. Writes will remain locked until a new PIN is set.",
-          "battery_soc_entity": "Choose a Home Assistant sensor that reports the real battery state of charge in %. For example, select the Dyness SOC sensor. This value is used only as a safety prerequisite for temporary Off-grid activation."
+          "battery_soc_entity": "Choose a Home Assistant sensor that reports the real battery state of charge in %. For example, select the Dyness SOC sensor. This value is used only as a safety prerequisite for temporary Off-grid activation.",
+          "runtime_mapping_validated": "Enable only after comparing PV, grid, house load, battery SOC and power with Solis/P1/Dyness under different loads. This marks telemetry as validated for EMS monitoring; it never enables writes."
         }
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "connection": {"name": "Modbus connection"},
-      "pv_production": {"name": "PV production active"}
+      "connection": {
+        "name": "Modbus connection"
+      },
+      "pv_production": {
+        "name": "PV production active"
+      },
+      "ems_data_ready": {
+        "name": "EMS data ready"
+      }
     },
     "sensor": {
-      "active_power": {"name": "Active inverter power"},
-      "battery_current": {"name": "Battery current"},
-      "battery_power": {"name": "Battery power"},
-      "battery_soc": {"name": "Battery state of charge"},
-      "battery_voltage": {"name": "Battery voltage"},
-      "device_time": {"name": "Inverter clock"},
-      "failed_polls": {"name": "Failed polls"},
-      "grid_frequency": {"name": "Grid frequency"},
-      "grid_power": {"name": "Grid power"},
-      "house_load_power": {"name": "House load power"},
-      "phase_voltage_l1": {"name": "Phase voltage L1"},
-      "phase_voltage_l2": {"name": "Phase voltage L2"},
-      "phase_voltage_l3": {"name": "Phase voltage L3"},
-      "pv_current_1": {"name": "PV1 current"},
-      "pv_current_2": {"name": "PV2 current"},
-      "pv_power": {"name": "PV power"},
-      "pv_voltage_1": {"name": "PV1 voltage"},
-      "pv_voltage_2": {"name": "PV2 voltage"},
-      "register_count": {"name": "Register count"},
-      "response_time": {"name": "Complete poll duration"},
-      "success_rate": {"name": "Network success rate"},
-      "temperature": {"name": "Inverter temperature"},
-      "last_success": {"name": "Last successful poll"},
-      "total_retries": {"name": "Total retries"},
-      "reconnect_count": {"name": "Reconnect count"},
-      "consecutive_failures": {"name": "Consecutive failures"},
-      "read_time": {"name": "Modbus read duration"},
-      "connect_time": {"name": "TCP connect duration"},
-      "average_poll_time": {"name": "Average poll duration"},
-      "min_poll_time": {"name": "Minimum poll duration"},
-      "max_poll_time": {"name": "Maximum poll duration"},
-      "connected_since": {"name": "Connected since"},
-      "connection_uptime": {"name": "Current connection uptime"},
-      "longest_connection": {"name": "Longest connection"},
-      "last_disconnect": {"name": "Last disconnect"},
-      "last_reconnect": {"name": "Last reconnect"},
-      "total_downtime": {"name": "Total downtime"},
-      "availability": {"name": "Connection availability"},
-      "health_score": {"name": "Connection health score"},
-      "disconnect_count": {"name": "Disconnect count"},
-      "pv_power_1": {"name": "PV1 power"},
-      "pv_power_2": {"name": "PV2 power"},
-      "pv_voltage_3": {"name": "PV3 voltage"},
-      "pv_current_3": {"name": "PV3 current"},
-      "pv_power_3": {"name": "PV3 power"},
-      "pv_voltage_4": {"name": "PV4 voltage"},
-      "pv_current_4": {"name": "PV4 current"},
-      "pv_power_4": {"name": "PV4 power"},
-      "pv_energy_total": {"name": "PV total energy"},
-      "pv_energy_month": {"name": "PV energy this month"},
-      "pv_energy_today": {"name": "PV energy today"},
-      "pv_energy_year": {"name": "PV energy this year"},
-      "pv_alarm_code": {"name": "PV alarm code"},
-      "pv_bus_voltage": {"name": "PV bus voltage"},
-      "setting_overcharge_soc": {"name": "🔴 Overcharge SOC"},
-      "setting_overdischarge_soc": {"name": "🟡 Minimum battery SOC"},
-      "setting_force_charge_soc": {"name": "🟡 Force-charge SOC"},
-      "setting_reserve_soc": {"name": "🟢 Reserve SOC"},
-      "setting_force_charge_power_limit": {"name": "🟡 Force-charge power limit"},
-      "setting_self_use_mode": {"name": "🟢 Self-use mode"},
-      "setting_time_of_use_mode": {"name": "🟢 Time-of-use mode"},
-      "setting_off_grid_mode": {"name": "🟡 Off-grid mode"},
-      "setting_reserve_battery_mode": {"name": "🟢 Reserve battery mode"},
-      "setting_allow_grid_charge": {"name": "🟡 Allow grid charging"},
-      "setting_feed_in_priority_mode": {"name": "🟢 Feed-in priority mode"},
-      "setting_off_grid_overdischarge_soc": {"name": "🟡 Off-grid minimum SOC"},
-      "setting_time_charge_current": {"name": "🟡 Scheduled charge current"},
-      "setting_time_discharge_current": {"name": "🟡 Scheduled discharge current"},
-      "setting_charge_start_1": {"name": "🟢 Charge slot 1 start"},
-      "setting_charge_end_1": {"name": "🟢 Charge slot 1 end"},
-      "setting_discharge_start_1": {"name": "🟢 Discharge slot 1 start"},
-      "setting_discharge_end_1": {"name": "🟢 Discharge slot 1 end"},
-      "setting_charge_start_2": {"name": "🟢 Charge slot 2 start"},
-      "setting_charge_end_2": {"name": "🟢 Charge slot 2 end"},
-      "setting_discharge_start_2": {"name": "🟢 Discharge slot 2 start"},
-      "setting_discharge_end_2": {"name": "🟢 Discharge slot 2 end"},
-      "setting_charge_start_3": {"name": "🟢 Charge slot 3 start"},
-      "setting_charge_end_3": {"name": "🟢 Charge slot 3 end"},
-      "setting_discharge_start_3": {"name": "🟢 Discharge slot 3 start"},
-      "setting_discharge_end_3": {"name": "🟢 Discharge slot 3 end"},
-      "settings_status": {"name": "Settings read status"}
+      "active_power": {
+        "name": "Active inverter power"
+      },
+      "battery_current": {
+        "name": "Battery current"
+      },
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "battery_soc": {
+        "name": "Battery state of charge"
+      },
+      "battery_voltage": {
+        "name": "Battery voltage"
+      },
+      "device_time": {
+        "name": "Inverter clock"
+      },
+      "failed_polls": {
+        "name": "Failed polls"
+      },
+      "grid_frequency": {
+        "name": "Grid frequency"
+      },
+      "grid_power": {
+        "name": "Grid power"
+      },
+      "house_load_power": {
+        "name": "House load power"
+      },
+      "phase_voltage_l1": {
+        "name": "Phase voltage L1"
+      },
+      "phase_voltage_l2": {
+        "name": "Phase voltage L2"
+      },
+      "phase_voltage_l3": {
+        "name": "Phase voltage L3"
+      },
+      "pv_current_1": {
+        "name": "PV1 current"
+      },
+      "pv_current_2": {
+        "name": "PV2 current"
+      },
+      "pv_power": {
+        "name": "PV power"
+      },
+      "pv_voltage_1": {
+        "name": "PV1 voltage"
+      },
+      "pv_voltage_2": {
+        "name": "PV2 voltage"
+      },
+      "register_count": {
+        "name": "Register count"
+      },
+      "response_time": {
+        "name": "Complete poll duration"
+      },
+      "success_rate": {
+        "name": "Network success rate"
+      },
+      "temperature": {
+        "name": "Inverter temperature"
+      },
+      "last_success": {
+        "name": "Last successful poll"
+      },
+      "total_retries": {
+        "name": "Total retries"
+      },
+      "reconnect_count": {
+        "name": "Reconnect count"
+      },
+      "consecutive_failures": {
+        "name": "Consecutive failures"
+      },
+      "read_time": {
+        "name": "Modbus read duration"
+      },
+      "connect_time": {
+        "name": "TCP connect duration"
+      },
+      "average_poll_time": {
+        "name": "Average poll duration"
+      },
+      "min_poll_time": {
+        "name": "Minimum poll duration"
+      },
+      "max_poll_time": {
+        "name": "Maximum poll duration"
+      },
+      "connected_since": {
+        "name": "Connected since"
+      },
+      "connection_uptime": {
+        "name": "Current connection uptime"
+      },
+      "longest_connection": {
+        "name": "Longest connection"
+      },
+      "last_disconnect": {
+        "name": "Last disconnect"
+      },
+      "last_reconnect": {
+        "name": "Last reconnect"
+      },
+      "total_downtime": {
+        "name": "Total downtime"
+      },
+      "availability": {
+        "name": "Connection availability"
+      },
+      "health_score": {
+        "name": "Connection health score"
+      },
+      "disconnect_count": {
+        "name": "Disconnect count"
+      },
+      "pv_power_1": {
+        "name": "PV1 power"
+      },
+      "pv_power_2": {
+        "name": "PV2 power"
+      },
+      "pv_voltage_3": {
+        "name": "PV3 voltage"
+      },
+      "pv_current_3": {
+        "name": "PV3 current"
+      },
+      "pv_power_3": {
+        "name": "PV3 power"
+      },
+      "pv_voltage_4": {
+        "name": "PV4 voltage"
+      },
+      "pv_current_4": {
+        "name": "PV4 current"
+      },
+      "pv_power_4": {
+        "name": "PV4 power"
+      },
+      "pv_energy_total": {
+        "name": "PV total energy"
+      },
+      "pv_energy_month": {
+        "name": "PV energy this month"
+      },
+      "pv_energy_today": {
+        "name": "PV energy today"
+      },
+      "pv_energy_year": {
+        "name": "PV energy this year"
+      },
+      "pv_alarm_code": {
+        "name": "PV alarm code"
+      },
+      "pv_bus_voltage": {
+        "name": "PV bus voltage"
+      },
+      "setting_overcharge_soc": {
+        "name": "🔴 Overcharge SOC"
+      },
+      "setting_overdischarge_soc": {
+        "name": "🟡 Minimum battery SOC"
+      },
+      "setting_force_charge_soc": {
+        "name": "🟡 Force-charge SOC"
+      },
+      "setting_reserve_soc": {
+        "name": "🟢 Reserve SOC"
+      },
+      "setting_force_charge_power_limit": {
+        "name": "🟡 Force-charge power limit"
+      },
+      "setting_self_use_mode": {
+        "name": "🟢 Self-use mode"
+      },
+      "setting_time_of_use_mode": {
+        "name": "🟢 Time-of-use mode"
+      },
+      "setting_off_grid_mode": {
+        "name": "🟡 Off-grid mode"
+      },
+      "setting_reserve_battery_mode": {
+        "name": "🟢 Reserve battery mode"
+      },
+      "setting_allow_grid_charge": {
+        "name": "🟡 Allow grid charging"
+      },
+      "setting_feed_in_priority_mode": {
+        "name": "🟢 Feed-in priority mode"
+      },
+      "setting_off_grid_overdischarge_soc": {
+        "name": "🟡 Off-grid minimum SOC"
+      },
+      "setting_time_charge_current": {
+        "name": "🟡 Scheduled charge current"
+      },
+      "setting_time_discharge_current": {
+        "name": "🟡 Scheduled discharge current"
+      },
+      "setting_charge_start_1": {
+        "name": "🟢 Charge slot 1 start"
+      },
+      "setting_charge_end_1": {
+        "name": "🟢 Charge slot 1 end"
+      },
+      "setting_discharge_start_1": {
+        "name": "🟢 Discharge slot 1 start"
+      },
+      "setting_discharge_end_1": {
+        "name": "🟢 Discharge slot 1 end"
+      },
+      "setting_charge_start_2": {
+        "name": "🟢 Charge slot 2 start"
+      },
+      "setting_charge_end_2": {
+        "name": "🟢 Charge slot 2 end"
+      },
+      "setting_discharge_start_2": {
+        "name": "🟢 Discharge slot 2 start"
+      },
+      "setting_discharge_end_2": {
+        "name": "🟢 Discharge slot 2 end"
+      },
+      "setting_charge_start_3": {
+        "name": "🟢 Charge slot 3 start"
+      },
+      "setting_charge_end_3": {
+        "name": "🟢 Charge slot 3 end"
+      },
+      "setting_discharge_start_3": {
+        "name": "🟢 Discharge slot 3 start"
+      },
+      "setting_discharge_end_3": {
+        "name": "🟢 Discharge slot 3 end"
+      },
+      "settings_status": {
+        "name": "Settings read status"
+      },
+      "data_quality": {
+        "name": "Data quality"
+      }
+    },
+    "switch": {
+      "ble_paused": {
+        "name": "Bluetooth paused"
+      }
     }
   },
   "exceptions": {

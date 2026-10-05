@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 import logging
+import time
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -15,6 +16,12 @@ from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_DEVICE_ID,
+    CONF_BLE_ADDRESS,
+    CONF_TRANSPORT,
+    CONF_RUNTIME_VALIDATED,
+    TRANSPORT_TCP,
+    TRANSPORT_BLE,
+    SETTINGS_SCAN_INTERVAL,
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
     CONF_TIMEOUT,
@@ -31,6 +38,7 @@ from .modbus_client import (
     AutarcoConnectionSettings,
     AutarcoModbusClient,
 )
+from .runtime_quality import runtime_quality
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,6 +50,10 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.config_entry = entry
+        self.transport = entry.data.get(CONF_TRANSPORT, TRANSPORT_TCP)
+        self._next_settings_read_at = 0.0
+        self.runtime_read_span_ms: float | None = None
+        self.max_runtime_age = max(30, 2 * int(entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)))
 
         self.successful_polls = 0
         self.failed_polls = 0
@@ -89,13 +101,17 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.settings_unsupported_blocks: tuple[str, ...] = ()
 
         settings = AutarcoConnectionSettings(
-            str(entry.data[CONF_HOST]),
+            str(entry.data[CONF_BLE_ADDRESS] if self.transport == TRANSPORT_BLE else entry.data[CONF_HOST]),
             int(entry.data.get(CONF_PORT, DEFAULT_PORT)),
             int(entry.data.get(CONF_DEVICE_ID, DEFAULT_DEVICE_ID)),
             int(entry.data.get(CONF_TIMEOUT, DEFAULT_TIMEOUT)),
             int(entry.data.get(CONF_RETRIES, DEFAULT_RETRIES)),
         )
-        self.client = AutarcoModbusClient(settings)
+        if self.transport == TRANSPORT_BLE:
+            from .ble_client import AutarcoBleClient
+            self.client = AutarcoBleClient(hass, settings)
+        else:
+            self.client = AutarcoModbusClient(settings)
 
         super().__init__(
             hass,
@@ -136,6 +152,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
 
     async def async_shutdown(self) -> None:
         """Persist diagnostics and close the socket during unload/reload."""
+        await super().async_shutdown()
         if self.connected_since is not None:
             self.longest_connection_seconds = max(
                 self.longest_connection_seconds, self.current_connection_uptime_seconds
@@ -228,6 +245,7 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             self.last_reconnect_reason = result.reconnect_reason
         self.last_response_ms = result.poll_duration_ms
         self.last_read_ms = result.read_duration_ms
+        self.runtime_read_span_ms = result.read_duration_ms
         self.last_connect_ms = result.connect_duration_ms
         self.poll_duration_total_ms += result.poll_duration_ms
         self.poll_duration_min_ms = (
@@ -247,23 +265,9 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
 
         # Settings read is best-effort. Never feed its failures into the normal
         # connection failure counters or DataUpdateCoordinator availability.
-        try:
-            settings_result = await self.hass.async_add_executor_job(
-                self.client.read_settings
-            )
-        except AutarcoConnectionError as err:
-            self.settings_last_failure_at = dt_util.utcnow()
-            self.settings_last_error = str(err)
-            _LOGGER.debug(
-                "Autarco settings-read mislukt; runtime monitoring blijft beschikbaar: %s",
-                err,
-            )
-        else:
-            self.settings_data = settings_result.registers
-            self.settings_read_time_ms = settings_result.read_duration_ms
-            self.settings_unsupported_blocks = settings_result.unsupported_blocks
-            self.settings_last_success_at = dt_util.utcnow()
-            self.settings_last_error = None
+        if time.monotonic() >= self._next_settings_read_at:
+            self._next_settings_read_at = time.monotonic() + SETTINGS_SCAN_INTERVAL
+            await self.async_refresh_settings()
 
         if not self._connection_established_once:
             self._connection_established_once = True
@@ -288,7 +292,8 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
             else:
                 self._record_connection_event("connected", self.last_success_at, None, None)
                 _LOGGER.info(
-                    "Autarco Modbus-verbinding opgebouwd met %s:%s (device_id=%s)",
+                    "Autarco %s-verbinding opgebouwd met %s:%s (device_id=%s)",
+                    self.transport,
                     self.client._settings.host,
                     self.client._settings.port,
                     self.client._settings.device_id,
@@ -318,6 +323,43 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         self.consecutive_failures = 0
         return result.registers
 
+    async def async_refresh_settings(self) -> None:
+        """Read settings separately; failures never invalidate runtime polling."""
+        try:
+            result = await self.hass.async_add_executor_job(self.client.read_settings)
+        except AutarcoConnectionError as err:
+            self.settings_last_failure_at = dt_util.utcnow()
+            self.settings_last_error = str(err)
+            _LOGGER.debug("Autarco settings-read mislukt: %s", err)
+        else:
+            self.settings_data = result.registers
+            self.settings_read_time_ms = result.read_duration_ms
+            self.settings_unsupported_blocks = result.unsupported_blocks
+            self.settings_last_success_at = dt_util.utcnow()
+            self.settings_last_error = None
+
+    @property
+    def runtime_age_seconds(self) -> float | None:
+        if self.last_success_at is None:
+            return None
+        return max(0.0, (dt_util.utcnow() - self.last_success_at).total_seconds())
+
+    @property
+    def data_quality(self) -> str:
+        if self.transport == TRANSPORT_BLE and self.client.paused:
+            return "paused"
+        return runtime_quality(self.data, failed=self.consecutive_failures > 0,
+                               age=self.runtime_age_seconds, max_age=self.max_runtime_age)
+
+    @property
+    def ems_data_ready(self) -> bool:
+        """A telemetry gate, never permission for machine-generated writes."""
+        return bool(self.config_entry.options.get(CONF_RUNTIME_VALIDATED, False)
+                    and self.data_quality == "live" and self.connection_available
+                    and self.successful_polls >= 5
+                    and self.runtime_read_span_ms is not None
+                    and self.runtime_read_span_ms <= 10000)
+
     def _record_connection_event(
         self, event: str, when, reason: str | None, downtime: float | None
     ) -> None:
@@ -344,18 +386,25 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
     @property
     def connection_available(self) -> bool:
         """Return true while connection is healthy or only briefly degraded."""
+        if self.transport == TRANSPORT_BLE and not self.client.session.connected:
+            return False
         return self.consecutive_failures < FAILURE_THRESHOLD and self.data is not None
 
     @property
     def settings_available(self) -> bool:
         """Return true when at least one requested setting register was read."""
-        return bool(self.settings_data)
+        if self.settings_last_success_at is None or self.settings_last_error:
+            return False
+        age = (dt_util.utcnow() - self.settings_last_success_at).total_seconds()
+        return bool(self.settings_data) and age <= 2 * SETTINGS_SCAN_INTERVAL
 
     @property
     def settings_status(self) -> str:
         """Return a compact settings-layer health state."""
         if not self.settings_data:
             return "unavailable"
+        if not self.settings_available:
+            return "stale"
         if self.settings_last_error or self.settings_unsupported_blocks:
             return "partial"
         return "available"
@@ -376,6 +425,14 @@ class AutarcoLocalCoordinator(DataUpdateCoordinator[dict[int, int]]):
         availability = round(max(0.0, (elapsed - downtime) / elapsed * 100), 3) if elapsed else None
         health_score = success_rate
         return {
+            "transport": self.transport,
+            "data_quality": self.data_quality,
+            "runtime_age_seconds": self.runtime_age_seconds,
+            "runtime_read_span_ms": self.runtime_read_span_ms,
+            "runtime_mapping_validated": bool(self.config_entry.options.get(CONF_RUNTIME_VALIDATED, False)),
+            "ems_data_ready": self.ems_data_ready,
+            "ems_control_ready": False,
+            **getattr(self.client, "transport_health", {}),
             "successful_polls": self.successful_polls,
             "failed_polls": self.failed_polls,
             "consecutive_failures": self.consecutive_failures,

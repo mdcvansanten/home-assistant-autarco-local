@@ -8,13 +8,14 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN
+from .const import DOMAIN, TRANSPORT_BLE
 
 _RUNTIME_KEY = f"{DOMAIN}_runtime_controls"
 _LOGGER_NAMES = (
     "custom_components.autarco_local",
     "custom_components.autarco_local.coordinator",
     "custom_components.autarco_local.modbus_client",
+    "custom_components.autarco_local.ble_client",
     "custom_components.autarco_local.settings_write",
     "custom_components.autarco_local.settings_write_v066",
 )
@@ -35,7 +36,10 @@ async def async_setup_entry(hass, entry, async_add_entities):
     """Set up diagnostic runtime controls."""
     controls = _runtime_controls(hass)
     _set_detailed_logging(bool(controls.get("detailed_logging", False)))
-    async_add_entities([DetailedLoggingSwitch(entry)])
+    entities = [DetailedLoggingSwitch(entry)]
+    if entry.runtime_data.transport == TRANSPORT_BLE:
+        entities.append(BlePauseSwitch(entry))
+    async_add_entities(entities)
 
 
 class DetailedLoggingSwitch(SwitchEntity):
@@ -58,7 +62,7 @@ class DetailedLoggingSwitch(SwitchEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Autarco",
-            model="S2.LH-MII (Modbus TCP)",
+            model="S2.LH-MII (local Modbus)",
         )
 
     @property
@@ -84,3 +88,39 @@ class DetailedLoggingSwitch(SwitchEntity):
         controls["detailed_logging"] = False
         _set_detailed_logging(False)
         self.async_write_ha_state()
+
+
+class BlePauseSwitch(SwitchEntity):
+    """Release HA's BLE session for direct local phone/app access."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "ble_paused"
+    _attr_icon = "mdi:bluetooth-off"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, entry):
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_ble_paused"
+        self._attr_device_info = DeviceInfo(identifiers={(DOMAIN, entry.entry_id)}, name=entry.title)
+
+    @property
+    def is_on(self):
+        return self._entry.runtime_data.client.paused
+
+    @property
+    def extra_state_attributes(self):
+        return {"control": "ble_pause", "restart_behavior": "off", "transport": "ble"}
+
+    async def _set(self, paused):
+        coordinator = self._entry.runtime_data
+        await self.hass.async_add_executor_job(coordinator.client.set_paused, paused)
+        self.async_write_ha_state()
+        coordinator.async_update_listeners()
+        if not paused:
+            await coordinator.async_request_refresh()
+
+    async def async_turn_on(self, **kwargs):
+        await self._set(True)
+
+    async def async_turn_off(self, **kwargs):
+        await self._set(False)

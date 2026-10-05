@@ -28,6 +28,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN
 from .settings import SETTINGS, SettingDesc, WRITE_POLICY_READ_ONLY
+from .runtime_quality import SENSOR_REGISTERS
 
 
 def u16(data, address):
@@ -169,6 +170,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             CountSensor(coordinator, entry),
             ClockSensor(coordinator, entry),
             SettingsStatusSensor(coordinator, entry),
+            DataQualitySensor(coordinator, entry),
         ]
     )
 
@@ -184,14 +186,41 @@ class Base(CoordinatorEntity, SensorEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Autarco",
-            model="S2.LH-MII (Modbus TCP)",
+            model="S2.LH-MII (local Modbus)",
         )
 
 
 class RegisterSensor(Base):
     @property
+    def available(self):
+        return bool(super().available
+                    and self.coordinator.data_quality in ("live", "partial")
+                    and all(address in (self.coordinator.data or {})
+                            for address in SENSOR_REGISTERS[self.entity_description.key]))
+
+    @property
     def native_value(self):
-        return self.entity_description.value_fn(self.coordinator.data or {})
+        data = self.coordinator.data or {}
+        if not all(address in data for address in SENSOR_REGISTERS[self.entity_description.key]):
+            return None
+        return self.entity_description.value_fn(data)
+
+    @property
+    def extra_state_attributes(self):
+        addresses = SENSOR_REGISTERS[self.entity_description.key]
+        data = self.coordinator.data or {}
+        return {
+            "autarco_key": self.entity_description.key,
+            "autarco_entry_id": self.coordinator.config_entry.entry_id,
+            "source_transport": self.coordinator.transport,
+            "data_quality": self.coordinator.data_quality if all(a in data for a in addresses) else "missing",
+            "sampled_at": self.coordinator.last_success_at,
+            "sample_span_ms": self.coordinator.runtime_read_span_ms,
+            "mapping_validated": self.entity_description.key == "temperature" or bool(self.coordinator.config_entry.options.get("runtime_mapping_validated", False)),
+            "register_type": "input",
+            "registers": list(addresses),
+            "raw_values": {str(a): data.get(a) for a in addresses},
+        }
 
 
 class SettingSensor(Base):
@@ -204,7 +233,7 @@ class SettingSensor(Base):
         data = self.coordinator.settings_data
         return (
             super().available
-            and self.coordinator.settings_last_error is None
+            and self.coordinator.settings_available
             and all(register in data for register in self.entity_description.registers)
         )
 
@@ -215,6 +244,11 @@ class SettingSensor(Base):
     @property
     def extra_state_attributes(self):
         return {
+            "autarco_key": self.entity_description.key.removeprefix("setting_"),
+            "autarco_entry_id": self.coordinator.config_entry.entry_id,
+            "source_transport": self.coordinator.transport,
+            "sampled_at": self.coordinator.settings_last_success_at,
+            "data_quality": self.coordinator.settings_status,
             "access_level": self.entity_description.access_level,
             "write_policy": WRITE_POLICY_READ_ONLY,
             "register_type": "holding",
@@ -327,3 +361,24 @@ class SettingsStatusSensor(Base):
             "last_error": health["settings_last_error"],
             "unsupported_blocks": list(health["unsupported_setting_blocks"]),
         }
+
+
+class DataQualitySensor(Base):
+    """Keep measurement freshness visible even during an outage."""
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, SensorEntityDescription(
+            key="data_quality", translation_key="data_quality", entity_category=EntityCategory.DIAGNOSTIC
+        ))
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def native_value(self):
+        return self.coordinator.data_quality
+
+    @property
+    def extra_state_attributes(self):
+        return {"autarco_key": "data_quality", **self.coordinator.network_health}
