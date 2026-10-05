@@ -8,8 +8,10 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PLATFORMS
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 from .coordinator import AutarcoLocalCoordinator
 from .settings_panel import async_register_settings_panel, unregister_settings_panel
 from .settings_security import (
