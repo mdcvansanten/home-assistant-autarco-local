@@ -44,6 +44,35 @@ een expliciet niet-ondersteund register wordt herkenbaar vermeld.
 
 ## Installeren in Home Assistant
 
+### Vanuit de GitHub-branch via de terminal
+
+Plak dit in de **Terminal & SSH**-add-on van Home Assistant OS:
+
+```bash
+(
+  set -e
+  autarco_script="$(mktemp /tmp/autarco-ble-deploy.XXXXXX)"
+  trap 'rm -f -- "$autarco_script"' EXIT
+  curl -fSL --connect-timeout 15 --max-time 60 \
+    https://raw.githubusercontent.com/mdcvansanten/home-assistant-autarco-local/codex/ble-transport-20261005/tools/deploy_ble_from_github.sh \
+    -o "$autarco_script"
+  bash "$autarco_script"
+)
+```
+
+Het script haalt `codex/ble-transport-20261005` op, valideert het archief en versie
+`0.7.0b1`, bewaart de bestaande component in `/config/backups`, vervangt de
+component, voert `ha core check` uit en vraagt daarna een HA-herstart aan.
+Als de configuratiecontrole faalt, herstelt het de oorspronkelijke component
+en vraagt het geen herstart aan. Download en tijdelijke uitpakmappen worden ook
+bij fouten opgeruimd. Configuratie, secrets, automations en inverterinstellingen
+worden niet aangepast.
+
+Wil je de herstart zelf uitvoeren, gebruik dan `bash "$autarco_script" --no-restart`
+in het bovenstaande blok en controleer/herstart HA daarna handmatig.
+
+### Met het losse installatiepakket
+
 1. Plaats de ZIP en `install_ble_beta.sh` in `/config`.
 2. Voer `bash /config/install_ble_beta.sh /config/autarco-local-ble-0.7.0b1.zip` uit.
 3. De installer controleert de pakketinhoud, bewaart de vorige component onder
@@ -59,6 +88,8 @@ een expliciet niet-ondersteund register wordt herkenbaar vermeld.
 6. De herconfiguratie leest alleen de temperatuur. Na het opslaan worden de
    permanente runtime- en settings-polls gestart. Open **Autarco Local** en
    herlaad de pagina volledig zodat de nieuwe dashboardmodule wordt geladen.
+
+Voer na de GitHub-deploy dezelfde herconfiguratie uit (stappen 5 en 6 hierboven).
 
 Laat **EMS-meetwaarden en tekens onafhankelijk gecontroleerd** in Configureren
 aanvankelijk uit. Het is geen toestemmingsknop voor inverterwrites.
