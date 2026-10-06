@@ -81,5 +81,5 @@ with tempfile.TemporaryDirectory(prefix="autarco-ble-install-") as temporary:
     if backup.exists():
         print(f"Vorige integratie: {backup / 'autarco_local'}")
     print("ZIP uitgepakt; tijdelijke uitpakmap wordt nu opgeruimd. Originele ZIP blijft bewaard.")
-    print("Controleer Home Assistant-configuratie en herstart HA. Kies daarna Herconfigureren → Bluetooth LE.")
+    print("Controleer Home Assistant-configuratie en herstart HA. Kies daarna Herconfigureren → Bluetooth met wifi-terugval.")
 PY

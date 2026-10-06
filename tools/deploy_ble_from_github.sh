@@ -174,6 +174,7 @@ if restart == "yes":
 else:
     print("Controleer de HA-configuratie en herstart Home Assistant handmatig.", flush=True)
 print("Daarna: Instellingen → Apparaten & diensten → Autarco Local → ⋮ → Herconfigureren.")
-print("Kies Bluetooth LE (beta). Sluit de lokale Solis-appverbinding vooraf af.")
+print("Kies Bluetooth met wifi-terugval (beta). Behoud het logger-IP en de Modbus-poort.")
+print("Verbreek vooraf de lokale Solis-appverbinding.")
 print("De tijdelijke download en uitpakmap worden nu opgeruimd.")
 PY
