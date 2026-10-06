@@ -21,7 +21,7 @@
           "transport": "Connection transport",
           "ble_address": "Bluetooth address"
         },
-        "description": "Choose Modbus TCP or Bluetooth LE. For BLE enter the Bluetooth address; IP and port are ignored. Validation only reads temperature. Reconfiguration keeps existing entities.",
+        "description": "Choose Bluetooth with Wi-Fi fallback for automatic switching. Enter both the Bluetooth address and the existing Wi-Fi logger host and Modbus port. Validation only reads data. Reconfiguration preserves existing entities.",
         "title": "Reconfigure Autarco Local",
         "data_description": {
           "device_id": "For BLE: expected response unit (tested inverter: 1). Requests use FE."
@@ -39,7 +39,7 @@
           "transport": "Connection transport",
           "ble_address": "Bluetooth address"
         },
-        "description": "Choose Modbus TCP or Bluetooth LE. For BLE enter the Bluetooth address; IP and port are ignored. Validation only reads temperature. Reconfiguration keeps existing entities.",
+        "description": "Choose Bluetooth with Wi-Fi fallback for automatic switching. Enter both the Bluetooth address and the existing Wi-Fi logger host and Modbus port. Validation only reads data. Reconfiguration preserves existing entities.",
         "title": "Add Autarco Local",
         "data_description": {
           "device_id": "For BLE: expected response unit (tested inverter: 1). Requests use FE."
@@ -76,7 +76,7 @@
   "entity": {
     "binary_sensor": {
       "connection": {
-        "name": "Modbus connection"
+        "name": "Local connection"
       },
       "pv_production": {
         "name": "PV production active"

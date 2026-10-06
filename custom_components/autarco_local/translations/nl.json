@@ -21,7 +21,7 @@
           "transport": "Verbinding",
           "ble_address": "Bluetooth-adres"
         },
-        "description": "Kies Modbus TCP of Bluetooth LE. Voor BLE gebruik je het Bluetooth-adres; IP-adres en poort worden dan niet gebruikt. De test leest alleen de temperatuur. Herconfigureren behoudt bestaande entiteiten.",
+        "description": "Kies Bluetooth met wifi-terugval voor automatische omschakeling. Vul het Bluetooth-adres én het bestaande IP-adres en de Modbus-poort van de wifi-logger in. De verbindingstest leest alleen gegevens. Herconfigureren behoudt bestaande entiteiten.",
         "title": "Autarco Local opnieuw configureren",
         "data_description": {
           "device_id": "Bij BLE het verwachte antwoordadres (jouw omvormer: 1). Het leesverzoek gebruikt FE."
@@ -39,7 +39,7 @@
           "transport": "Verbinding",
           "ble_address": "Bluetooth-adres"
         },
-        "description": "Kies Modbus TCP of Bluetooth LE. Voor BLE gebruik je het Bluetooth-adres; IP-adres en poort worden dan niet gebruikt. De test leest alleen de temperatuur. Herconfigureren behoudt bestaande entiteiten.",
+        "description": "Kies Bluetooth met wifi-terugval voor automatische omschakeling. Vul het Bluetooth-adres én het bestaande IP-adres en de Modbus-poort van de wifi-logger in. De verbindingstest leest alleen gegevens. Herconfigureren behoudt bestaande entiteiten.",
         "title": "Autarco Local toevoegen",
         "data_description": {
           "device_id": "Bij BLE het verwachte antwoordadres (jouw omvormer: 1). Het leesverzoek gebruikt FE."
@@ -76,7 +76,7 @@
   "entity": {
     "binary_sensor": {
       "connection": {
-        "name": "Modbus-verbinding"
+        "name": "Lokale verbinding"
       },
       "pv_production": {
         "name": "PV-productie actief"

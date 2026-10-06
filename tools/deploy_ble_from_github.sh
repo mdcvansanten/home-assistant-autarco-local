@@ -48,6 +48,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import runpy
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
@@ -60,7 +61,7 @@ temporary, config = Path(sys.argv[1]), Path(sys.argv[2]).resolve()
 restart, repository, branch = sys.argv[3:]
 archive = temporary / "source.zip"
 unpacked = temporary / "source"
-expected_version = "0.7.0b1"
+expected_version = "0.7.0b2"
 
 # Validate every archive member before extracting or changing HA files.
 with zipfile.ZipFile(archive) as bundle:
@@ -93,6 +94,12 @@ manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
 if manifest.get("domain") != "autarco_local" or manifest.get("version") != expected_version:
     raise SystemExit("Onverwachte integratie of versie; er is niets geïnstalleerd")
 
+cleanup_path = source.parents[1] / "tools" / "legacy_ping_cleanup.py"
+if not cleanup_path.is_file():
+    raise SystemExit("De branch mist de cleanup voor de oude pingmeldingen")
+cleanup = runpy.run_path(str(cleanup_path))
+legacy_changes = cleanup["plan_cleanup"](config)
+
 target = config / "custom_components" / "autarco_local"
 if target.parent.is_symlink() or target.is_symlink():
     raise SystemExit("De componentmap is een symlink; installatie afgebroken")
@@ -111,6 +118,10 @@ backup.mkdir(parents=True)
 if had_previous:
     shutil.copytree(target, backup / "autarco_local", ignore=ignore)
     print(f"Back-up: {backup / 'autarco_local'}", flush=True)
+for file, (before, after, identifiers) in legacy_changes.items():
+    saved = backup / "legacy_notifications" / file.relative_to(config)
+    saved.parent.mkdir(parents=True, exist_ok=True)
+    saved.write_bytes(before)
 (backup / "deployment.json").write_text(json.dumps({
     "repository": repository, "branch": branch, "version": expected_version,
     "archive_sha256": hashlib.sha256(archive.read_bytes()).hexdigest(),
@@ -119,6 +130,7 @@ if had_previous:
 }, indent=2) + "\n", encoding="utf-8")
 
 swapped = False
+changed_legacy = []
 try:
     shutil.copytree(source, stage, ignore=ignore)
     if had_previous:
@@ -126,6 +138,10 @@ try:
     try:
         os.replace(stage, target)
         swapped = True
+        for file, (before, after, identifiers) in legacy_changes.items():
+            cleanup["replace_file"](file, before, after)
+            changed_legacy.append(file)
+            print("Oude ping/Modbus-push uitgeschakeld: " + ", ".join(identifiers), flush=True)
         if restart == "yes":
             print("Home Assistant-configuratie controleren…", flush=True)
             subprocess.run(["ha", "core", "check"], check=True, timeout=240)
@@ -134,7 +150,10 @@ try:
             shutil.rmtree(target)
         if old.exists():
             os.replace(old, target)
-        print("Deploy afgebroken; de oorspronkelijke component is hersteld. HA is niet herstart.",
+        for file in reversed(changed_legacy):
+            before, after, _ = legacy_changes[file]
+            cleanup["replace_file"](file, after, before)
+        print("Deploy afgebroken; de oorspronkelijke component en gewijzigde meldingsconfiguratie zijn hersteld. HA is niet herstart.",
               file=sys.stderr, flush=True)
         raise
     if old.exists():

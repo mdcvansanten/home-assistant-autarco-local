@@ -55,6 +55,7 @@ class AutarcoReadResult:
     unsupported_blocks: tuple[str, ...]
     reconnects: int
     reconnect_reason: str | None
+    source_transport: str = "tcp"
 
 
 @dataclass(slots=True, frozen=True)
@@ -64,6 +65,7 @@ class AutarcoSettingsReadResult:
     registers: dict[int, int]
     read_duration_ms: float
     unsupported_blocks: tuple[str, ...]
+    source_transport: str = "tcp"
 
 
 @dataclass(slots=True, frozen=True)

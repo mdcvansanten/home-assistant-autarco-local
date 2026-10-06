@@ -155,6 +155,8 @@ async def _async_handle_set_off_grid_minimum_soc(
         hass,
         call.data.get("config_entry_id"),
     )
+    if getattr(coordinator.client, "write_supported", True) is False:
+        raise HomeAssistantError("Deze Bluetooth-verbinding met eventuele wifi-terugval is alleen-lezen in deze beta.")
     if not settings_are_unlocked(hass, entry.entry_id, user_id):
         raise HomeAssistantError(
             "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
@@ -191,6 +193,8 @@ def _async_register_services(hass: HomeAssistant) -> None:
                   for desc in SENSORS if desc.key in EMS_KEYS}
         return {
             "entry_id": entry.entry_id, "transport": coordinator.transport,
+            "configured_transport": coordinator.configured_transport,
+            "fallback_active": bool(coordinator.network_health.get("fallback_active", False)),
             "quality": coordinator.data_quality,
             "sampled_at": coordinator.last_success_at.isoformat() if coordinator.last_success_at else None,
             "age_seconds": coordinator.runtime_age_seconds,

@@ -8,7 +8,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.const import EntityCategory
 from homeassistant.helpers.device_registry import DeviceInfo
 
-from .const import DOMAIN, TRANSPORT_BLE
+from .const import DOMAIN, BLE_TRANSPORTS
 
 _RUNTIME_KEY = f"{DOMAIN}_runtime_controls"
 _LOGGER_NAMES = (
@@ -16,6 +16,7 @@ _LOGGER_NAMES = (
     "custom_components.autarco_local.coordinator",
     "custom_components.autarco_local.modbus_client",
     "custom_components.autarco_local.ble_client",
+    "custom_components.autarco_local.failover_client",
     "custom_components.autarco_local.settings_write",
     "custom_components.autarco_local.settings_write_v066",
 )
@@ -37,7 +38,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     controls = _runtime_controls(hass)
     _set_detailed_logging(bool(controls.get("detailed_logging", False)))
     entities = [DetailedLoggingSwitch(entry)]
-    if entry.runtime_data.transport == TRANSPORT_BLE:
+    if entry.runtime_data.configured_transport in BLE_TRANSPORTS:
         entities.append(BlePauseSwitch(entry))
     async_add_entities(entities)
 
@@ -113,11 +114,10 @@ class BlePauseSwitch(SwitchEntity):
 
     async def _set(self, paused):
         coordinator = self._entry.runtime_data
-        await self.hass.async_add_executor_job(coordinator.client.set_paused, paused)
+        await coordinator.async_set_ble_paused(paused)
         self.async_write_ha_state()
         coordinator.async_update_listeners()
-        if not paused:
-            await coordinator.async_request_refresh()
+        await coordinator.async_request_refresh()
 
     async def async_turn_on(self, **kwargs):
         await self._set(True)

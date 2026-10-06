@@ -246,7 +246,7 @@ class SettingSensor(Base):
         return {
             "autarco_key": self.entity_description.key.removeprefix("setting_"),
             "autarco_entry_id": self.coordinator.config_entry.entry_id,
-            "source_transport": self.coordinator.transport,
+            "source_transport": self.coordinator.settings_transport,
             "sampled_at": self.coordinator.settings_last_success_at,
             "data_quality": self.coordinator.settings_status,
             "access_level": self.entity_description.access_level,

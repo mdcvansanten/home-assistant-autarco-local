@@ -20,6 +20,7 @@ def deployment(tmp_path):
         for file in source.rglob("*"):
             if file.is_file() and "__pycache__" not in file.parts and file.suffix != ".pyc":
                 bundle.write(file, f"{prefix}/{file.relative_to(source)}")
+        bundle.write(ROOT / "tools/legacy_ping_cleanup.py", "home-assistant-autarco-local-test/tools/legacy_ping_cleanup.py")
     config = tmp_path / "config"
     target = config / "custom_components/autarco_local"
     target.mkdir(parents=True)
@@ -71,7 +72,7 @@ def test_branch_deploy_preserves_config_backs_up_checks_restarts_and_cleans(depl
     _, config, target, temporary, env = deployment
     result = deploy(deployment)
     assert result.returncode == 0, result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b1"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
     assert not (target / "old_component.py").exists()
     backup = list((config / "backups").glob("*/autarco_local/old_component.py"))
     assert len(backup) == 1 and backup[0].read_text() == "# previous source"
@@ -87,7 +88,7 @@ def test_failed_ha_check_restores_previous_component_without_restart(deployment)
     _, config, target, temporary, env = deployment
     result = deploy(deployment, overrides={"DEPLOY_TEST_CHECK_FAIL": "1"})
     assert result.returncode != 0
-    assert "oorspronkelijke component is hersteld" in result.stderr
+    assert "oorspronkelijke component" in result.stderr and "HA is niet herstart" in result.stderr
     assert (target / "old_component.py").read_text() == "# previous source"
     assert json.loads((target / "manifest.json").read_text())["version"] == "0.6.6"
     assert Path(env["DEPLOY_TEST_HA_LOG"]).read_text().splitlines() == ["core check"]
@@ -111,7 +112,7 @@ def test_no_restart_option_installs_without_calling_ha(deployment):
     _, _, target, temporary, env = deployment
     result = deploy(deployment, "--no-restart")
     assert result.returncode == 0, result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b1"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
     assert not Path(env["DEPLOY_TEST_HA_LOG"]).exists()
     assert not list(temporary.iterdir())
 
@@ -140,7 +141,37 @@ def test_failed_restart_reports_installed_files_without_claiming_success(deploym
     _, config, target, temporary, env = deployment
     result = deploy(deployment, overrides={"DEPLOY_TEST_RESTART_FAIL": "1"})
     assert result.returncode != 0 and "herstart is niet bevestigd" in result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b1"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
     assert len(list((config / "backups").glob("*/autarco_local"))) == 1
     assert Path(env["DEPLOY_TEST_HA_LOG"]).read_text().splitlines() == ["core check", "core restart"]
     assert not list(temporary.iterdir())
+
+
+def legacy_package(deployment):
+    _, config, _, _, _ = deployment
+    packages = config / "packages"
+    packages.mkdir()
+    file = packages / "autarco_diagnostics.yaml"
+    file.write_text("automation:\n  - id: autarco_logger_offline_push\n    actions: []\n"
+                    "  - id: autarco_modbus_local_push\n    actions: []\n"
+                    "  - id: autarco_connection_recovered_push\n    actions: []\n"
+                    "  - id: autarco_data_missing_push\n    actions: []\n")
+    return file, file.read_bytes()
+
+
+def test_deploy_disables_only_known_ping_notifications_with_backup(deployment):
+    file, before = legacy_package(deployment)
+    _, config, _, _, _ = deployment
+    result = deploy(deployment)
+    assert result.returncode == 0, result.stderr
+    assert file.read_bytes().count(b"initial_state: false") == 3
+    assert b"  - id: autarco_data_missing_push\n    actions: []" in file.read_bytes()
+    backups = list((config / "backups").glob("*/legacy_notifications/packages/autarco_diagnostics.yaml"))
+    assert len(backups) == 1 and backups[0].read_bytes() == before
+
+
+def test_failed_config_check_restores_notification_yaml_together_with_component(deployment):
+    file, before = legacy_package(deployment)
+    result = deploy(deployment, overrides={"DEPLOY_TEST_CHECK_FAIL": "1"})
+    assert result.returncode != 0
+    assert file.read_bytes() == before

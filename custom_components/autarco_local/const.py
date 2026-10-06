@@ -24,6 +24,9 @@ CONF_TRANSPORT: Final = "transport"
 CONF_BLE_ADDRESS: Final = "ble_address"
 TRANSPORT_TCP: Final = "tcp"
 TRANSPORT_BLE: Final = "ble"
+TRANSPORT_BLE_TCP: Final = "ble_tcp"
+BLE_TRANSPORTS: Final = (TRANSPORT_BLE, TRANSPORT_BLE_TCP)
+BLE_RECOVERY_INTERVAL: Final = 60
 CONF_RUNTIME_VALIDATED: Final = "runtime_mapping_validated"
 SETTINGS_SCAN_INTERVAL: Final = 60
 # Narrow input blocks cover exactly the existing sensors. Avoid large ranges

@@ -32,7 +32,7 @@ def test_bundle_installs_preserves_config_and_old_component(bundle_and_config):
     archive, config, target = bundle_and_config
     result = install(archive, config)
     assert result.returncode == 0, result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b1"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
     assert (config / "configuration.yaml").read_text() == "# preserve configuration"
     assert not (target / "old_component.py").exists()
     backup = list((config / "backups").glob("*/autarco_local/old_component.py"))

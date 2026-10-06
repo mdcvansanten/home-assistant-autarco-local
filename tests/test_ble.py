@@ -110,6 +110,21 @@ async def test_session_reads_expected_unit_without_reconnecting():
 
 
 @pytest.mark.asyncio
+async def test_simultaneous_connect_requests_establish_only_one_client(monkeypatch):
+    session = BleSession(None, "test", 1, 1)
+    monkeypatch.setattr("custom_components.autarco_local.ble_client.bluetooth.async_ble_device_from_address", lambda *a, **k: SimpleNamespace(name="INV_test"))
+    monkeypatch.setattr("custom_components.autarco_local.ble_client.bluetooth.async_last_service_info", lambda *a, **k: None)
+    async def connect(*args, **kwargs):
+        await asyncio.sleep(0.01)
+        return fake_client()
+    establish = AsyncMock(side_effect=connect)
+    monkeypatch.setattr("custom_components.autarco_local.ble_client.establish_connection", establish)
+    assert await asyncio.gather(session.ensure_connected(), session.ensure_connected()) == [True, False]
+    establish.assert_awaited_once()
+    await session.disconnect()
+
+
+@pytest.mark.asyncio
 async def test_unmatched_frames_do_not_complete_request():
     session = BleSession(None, "test", 1, 1)
     session.client = fake_client()

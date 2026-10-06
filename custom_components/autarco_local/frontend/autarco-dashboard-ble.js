@@ -24,7 +24,7 @@ if (BLE_PANEL) {
   };
   const oldService = proto._serviceAvailable;
   proto._serviceAvailable = function (name) {
-    if (name === "set_off_grid_minimum_soc" && health(this).transport === "ble") return false;
+    if (name === "set_off_grid_minimum_soc" && health(this).write_supported === false) return false;
     return oldService.call(this, name);
   };
   const oldOverview = proto._overview;
@@ -36,10 +36,17 @@ if (BLE_PANEL) {
     const age = Number.isFinite(h.runtime_age_seconds) ? `${Math.round(h.runtime_age_seconds)} s` : "—";
     const pause = this._entities().find(e => e.entity_id.startsWith("switch.") && e.attributes?.control === "ble_pause");
     const paused = pause?.state === "on";
+    const active = h.active_transport || h.transport;
+    const automatic = h.configured_transport === "ble_tcp";
+    const connection = active === "ble" ? "Bluetooth LE" : automatic ? "Wifi-terugval" : "Lokale verbinding";
+    const route = automatic
+      ? (h.fallback_active ? (paused ? "Bluetooth vrijgegeven voor de Solis-app. Meetgegevens blijven via wifi binnenkomen." : "Bluetooth tijdelijk niet beschikbaar. Meetgegevens komen via wifi binnen; Bluetooth-herstel wordt automatisch getest.")
+         : "Bluetooth is de hoofdverbinding. Bij uitval schakelt Autarco Local automatisch naar wifi.")
+      : "Meetgegevens en instellingen hebben ieder een eigen status.";
     return `<div class="dashboard-block compact">
-      <h3>${h.transport === "ble" ? "Bluetooth LE" : "Lokale verbinding"}</h3>
+      <h3>${connection}</h3>
       <p><strong>${this._escape(labels[h.data_quality] || "Wachten op data")}</strong> · Meetleeftijd ${this._escape(age)}</p>
-      <p class="muted">${h.transport === "ble" ? "Eén blijvende verbinding voor gebruikersdata en instellingen. Geen installerlogin bewezen of nagebootst." : "Meetgegevens en instellingen hebben ieder een eigen status."}</p>
+      <p class="muted">${route}</p>
       ${pause ? `<button class="secondary" data-action="ble-pause" data-entity-id="${this._escape(pause.entity_id)}">${paused ? "Bluetooth hervatten" : "Vrijgeven voor Solis-app"}</button>` : ""}
       <p class="muted">EMS-data: ${h.ems_data_ready ? "gereed voor monitoring" : "nog te valideren"}. Automatische invertersturing: nog niet actief.</p>
     </div>`;
@@ -48,7 +55,7 @@ if (BLE_PANEL) {
   proto._diagnostics = function () { return this._transportCard() + oldDiagnostics.call(this); };
   proto._settings = function () {
     const h = health(this);
-    const banner = h.transport === "ble" ? `<div class="callout">Bluetooth-instellingen zijn in deze beta alleen-lezen. De instellingen worden ongeveer iedere minuut ververst. Een leesantwoord bewijst nog geen werkende schrijfrechten.</div>` : "";
+    const banner = h.write_supported === false ? `<div class="callout">Instellingen zijn in deze Bluetooth-beta alleen-lezen, ook tijdens wifi-terugval. Ze worden ongeveer iedere minuut ververst.</div>` : "";
     return banner + `<button class="secondary" data-action="ble-refresh-settings">Instellingen opnieuw lezen</button>` + oldSettings.call(this);
   };
   const oldBind = proto._bindEvents;

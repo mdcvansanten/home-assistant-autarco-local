@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.7.0b2 — Bluetooth primary with Wi-Fi fallback
+
+- One existing Autarco Local entry can now use BLE first and Modbus TCP over the
+  Wi-Fi logger as automatic fallback. Each runtime/settings snapshot records its
+  source, and a source change immediately refreshes settings.
+- BLE recovery runs in the background every minute while TCP telemetry continues.
+  A temperature probe prepares recovery; a complete BLE runtime poll with all
+  essential telemetry registers is required before switching back.
+- Releasing Bluetooth for the Solis app keeps TCP polling active. Recovery tasks
+  are cancelled on handoff/shutdown, and concurrent connects share one BLE session.
+- The dashboard shows the active route and replaces the obsolete Modbus/ping text.
+- GitHub terminal deployment disables only the three known legacy ping/TCP push
+  automations, with YAML backups and rollback together with the component if the
+  HA configuration check fails.
+- The combined route remains read-only, including during TCP fallback. Existing
+  explicitly configured TCP-only settings pilots retain their original guards.
+
 ## 0.7.0b1 — Bluetooth transport beta
 
 - Persistent BLE transport through HA's shared Bluetooth manager; serialized,

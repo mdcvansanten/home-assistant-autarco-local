@@ -20,6 +20,8 @@ from .const import (
     CONF_RUNTIME_VALIDATED,
     TRANSPORT_TCP,
     TRANSPORT_BLE,
+    TRANSPORT_BLE_TCP,
+    BLE_TRANSPORTS,
     CONF_DEVICE_ID,
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
@@ -74,17 +76,20 @@ def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def _connection_id(data: dict[str, Any]) -> str:
-    if data.get(CONF_TRANSPORT) == TRANSPORT_BLE:
+    if data.get(CONF_TRANSPORT) in BLE_TRANSPORTS:
         return f"ble:{data[CONF_BLE_ADDRESS]}"
     return f"{data[CONF_HOST]}:{data[CONF_PORT]}"
 
 
 async def _validate_input(hass, data: dict[str, Any], entry=None) -> None:
     """Validate user input with a read-only Modbus request."""
-    is_ble = data.get(CONF_TRANSPORT) == TRANSPORT_BLE
+    is_ble = data.get(CONF_TRANSPORT) in BLE_TRANSPORTS
+    is_failover = data.get(CONF_TRANSPORT) == TRANSPORT_BLE_TCP
+    if data.get(CONF_TRANSPORT) not in (TRANSPORT_TCP, *BLE_TRANSPORTS):
+        raise AutarcoConnectionError("Onbekende verbinding")
     if is_ble and not re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", data[CONF_BLE_ADDRESS]):
         raise AutarcoConnectionError("Vul een geldig Bluetooth-adres in")
-    if not is_ble and not data[CONF_HOST]:
+    if (not is_ble or is_failover) and not data[CONF_HOST]:
         raise AutarcoConnectionError("Vul het IP-adres van de TCP-logger in")
     settings = AutarcoConnectionSettings(
         host=data[CONF_BLE_ADDRESS] if is_ble else data[CONF_HOST],
@@ -95,14 +100,30 @@ async def _validate_input(hass, data: dict[str, Any], entry=None) -> None:
     )
     if is_ble:
         from .ble_client import AutarcoBleClient
+        from .failover_client import AutarcoFailoverClient
         # Reconfigure a loaded BLE entry using its existing connection. A second
         # validation session could compete with the permanent session.
         if entry and getattr(entry, "runtime_data", None):
             existing = entry.runtime_data.client
-            if isinstance(existing, AutarcoBleClient) and existing._settings.host == settings.host:
-                await hass.async_add_executor_job(existing.validate)
+            same_ble = isinstance(existing, (AutarcoBleClient, AutarcoFailoverClient)) and existing._settings.host == settings.host
+            if same_ble and existing._settings.device_id == settings.device_id:
+                primary = existing.ble if isinstance(existing, AutarcoFailoverClient) else existing
+                try:
+                    await hass.async_add_executor_job(primary.validate)
+                except AutarcoConnectionError:
+                    if not is_failover:
+                        raise
+                    fallback_settings = AutarcoConnectionSettings(
+                        data[CONF_HOST], settings.port, settings.device_id, settings.timeout, settings.retries
+                    )
+                    await hass.async_add_executor_job(AutarcoModbusClient(fallback_settings).validate)
                 return
-        client = AutarcoBleClient(hass, settings)
+        if is_failover:
+            tcp_settings = AutarcoConnectionSettings(data[CONF_HOST], settings.port, settings.device_id,
+                                                     settings.timeout, settings.retries)
+            client = AutarcoFailoverClient(hass, settings, tcp_settings)
+        else:
+            client = AutarcoBleClient(hass, settings)
     else:
         client = AutarcoModbusClient(settings)
     await hass.async_add_executor_job(client.validate)
@@ -116,6 +137,7 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): selector.TextSelector(),
             vol.Required(CONF_TRANSPORT, default=defaults.get(CONF_TRANSPORT, TRANSPORT_TCP)): selector.SelectSelector(
                 selector.SelectSelectorConfig(options=[
+                    {"value": TRANSPORT_BLE_TCP, "label": "Bluetooth met wifi-terugval (beta)"},
                     {"value": TRANSPORT_TCP, "label": "Modbus TCP"},
                     {"value": TRANSPORT_BLE, "label": "Bluetooth LE (beta)"},
                 ])
@@ -222,7 +244,10 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 options = dict(entry.options)
-                if _connection_id(dict(entry.data)) != _connection_id(data):
+                changed_route = any(entry.data.get(key) != data.get(key) for key in (
+                    CONF_TRANSPORT, CONF_BLE_ADDRESS, CONF_HOST, CONF_PORT, CONF_DEVICE_ID
+                ))
+                if changed_route:
                     options[CONF_RUNTIME_VALIDATED] = False
                 return self.async_update_reload_and_abort(
                     entry,

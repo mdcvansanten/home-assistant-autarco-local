@@ -1,8 +1,35 @@
-# Bluetooth beta 0.7.0b1
+# Bluetooth beta 0.7.0b2
 
 Deze beta voegt Bluetooth LE toe aan de bestaande Autarco Local-integratie.
 De bestaande config entry, entiteit-ID's en het Autarco-dashboard blijven behouden
 wanneer dezelfde entry wordt geherconfigureerd van TCP naar BLE.
+
+Dit is dezelfde **Autarco Local-app en GitHub-repository** als de bestaande
+dashboard-/instellingenontwikkeling. Het Bluetoothwerk wordt daarin voortgezet;
+er is geen tweede app of tweede inverter-entry nodig.
+
+## Bluetooth primair, wifi als terugval
+
+Kies **Bluetooth met wifi-terugval (beta)** bij Herconfigureren. Bluetooth leest
+de omvormer rechtstreeks. De bestaande logger blijft via het ingestelde
+IP-adres/host, Modbus TCP-poort en Device ID bereikbaar als terugval.
+
+- Na een mislukte BLE-runtime-poll leest de client één nieuwe TCP-snapshot.
+  Essentiële runtime-registers die via BLE ontbreken leiden ook tot terugval.
+- Tijdens terugval blijven TCP-polls doorgaan. Elke minuut probeert een aparte
+  achtergrondtaak één temperatuurread via dezelfde BLE-client. Alleen na een
+  geslaagde volledige runtime-poll keert de integratie terug naar Bluetooth.
+- Iedere runtime-/settings-snapshot houdt zijn eigen bron en tijdstip. Registers
+  uit beide verbindingen worden niet tot één momentopname samengevoegd.
+- Na een bronwissel worden instellingen meteen opnieuw gelezen. Een mislukte
+  instellingenread maakt de goede runtime-snapshot niet onbeschikbaar.
+- **Vrijgeven voor Solis-app** pauzeert BLE en annuleert een lopende hersteltest.
+  Meetgegevens blijven via TCP binnenkomen als de logger bereikbaar is.
+- De gecombineerde modus is alleen-lezen, ook tijdens TCP-terugval. Een
+  automatische bronwisseling opent geen andere schrijfrechten.
+
+De automatische terugval en het herstel zijn getest met gesimuleerde uitval.
+Een duurtest op de echte Raspberry Pi/omvormer blijft nodig.
 
 ## Twee functies boven één verbinding
 
@@ -54,19 +81,24 @@ Plak dit in de **Terminal & SSH**-add-on van Home Assistant OS:
   autarco_script="$(mktemp /tmp/autarco-ble-deploy.XXXXXX)"
   trap 'rm -f -- "$autarco_script"' EXIT
   curl -fSL --connect-timeout 15 --max-time 60 \
-    https://raw.githubusercontent.com/mdcvansanten/home-assistant-autarco-local/codex/ble-transport-20261005/tools/deploy_ble_from_github.sh \
+    'https://raw.githubusercontent.com/mdcvansanten/home-assistant-autarco-local/codex/ble-transport-20261005/tools/deploy_ble_from_github.sh?v=0.7.0b2' \
     -o "$autarco_script"
   bash "$autarco_script"
 )
 ```
 
 Het script haalt `codex/ble-transport-20261005` op, valideert het archief en versie
-`0.7.0b1`, bewaart de bestaande component in `/config/backups`, vervangt de
+`0.7.0b2`, bewaart de bestaande component in `/config/backups`, vervangt de
 component, voert `ha core check` uit en vraagt daarna een HA-herstart aan.
 Als de configuratiecontrole faalt, herstelt het de oorspronkelijke component
 en vraagt het geen herstart aan. Download en tijdelijke uitpakmappen worden ook
-bij fouten opgeruimd. Configuratie, secrets, automations en inverterinstellingen
-worden niet aangepast.
+bij fouten opgeruimd. Het script schakelt alleen de drie herkende oude
+communicatie-pushautomations uit met `initial_state: false`: logger-offline,
+Modbus-storing en het bijbehorende ping/Modbus-herstel. Het zoekt in
+`/config/packages`, `automations.yaml` en losse `autarco_diagnostics*.yaml`.
+Die YAML-bestanden worden afzonderlijk geback-upt en bij een mislukte
+configuratiecontrole ook hersteld. Andere meldingen en alle overige configuratie,
+secrets en inverterinstellingen blijven behouden.
 
 Wil je de herstart zelf uitvoeren, gebruik dan `bash "$autarco_script" --no-restart`
 in het bovenstaande blok en controleer/herstart HA daarna handmatig.
@@ -74,18 +106,18 @@ in het bovenstaande blok en controleer/herstart HA daarna handmatig.
 ### Met het losse installatiepakket
 
 1. Plaats de ZIP en `install_ble_beta.sh` in `/config`.
-2. Voer `bash /config/install_ble_beta.sh /config/autarco-local-ble-0.7.0b1.zip` uit.
+2. Voer `bash /config/install_ble_beta.sh /config/autarco-local-ble-0.7.0b2.zip` uit.
 3. De installer controleert de pakketinhoud, bewaart de vorige component onder
    `/config/backups/autarco_ble_<tijdstip>_<id>/autarco_local`, vervangt uitsluitend
    de component en ruimt de tijdelijke uitpakmap op. De ZIP blijft bewaard.
 4. Controleer HA-configuratie en herstart Home Assistant. De integratie haalt de
    benodigde dependencies zelf op; de testvirtualenv is geen HA-dependency.
 5. Open **Instellingen → Apparaten & diensten → Autarco Local → ⋮ → Herconfigureren**.
-   Kies **Bluetooth LE (beta)**, het Bluetooth-adres, Device ID **1**, timeout
-   **5 s**, interval **15 s**, retries **1**. Bij BLE worden IP en poort genegeerd.
-   Behoud bij een bestaande entry wel het huidige IP/poort in de ingevulde velden,
-   zodat terugschakelen naar TCP eenvoudig blijft.
-6. De herconfiguratie leest alleen de temperatuur. Na het opslaan worden de
+   Kies **Bluetooth met wifi-terugval (beta)**, het Bluetooth-adres, Device ID **1**,
+   timeout **5 s**, interval **15 s**, retries **1**. Behoud het juiste bestaande
+   IP-adres/host en de Modbus-poort van de wifi-logger: deze worden voor terugval gebruikt.
+6. De herconfiguratie doet alleen leestests en accepteert een bereikbare BLE- of
+   TCP-route. Na het opslaan worden de
    permanente runtime- en settings-polls gestart. Open **Autarco Local** en
    herlaad de pagina volledig zodat de nieuwe dashboardmodule wordt geladen.
 
@@ -103,6 +135,7 @@ Het dashboard toont bron, meetleeftijd, verbindingsstatus en instellingenstatus.
 Na lokale telefoonbediening: verbreek de Solis-appverbinding en klik
 **Bluetooth hervatten**. De pauze wordt na HA-herstart niet onthouden.
 Datakwaliteit en de pauzeknop zijn ook beschikbaar als gewone HA-entiteiten.
+Bij de gecombineerde modus loopt de monitoring tijdens de pauze via wifi door.
 
 Een ontbrekend register of een mislukte poll wordt niet als 0 W ingevuld.
 Een werkelijk ontvangen registerwaarde 0 blijft 0. Bij een mislukte poll blijft
@@ -146,7 +179,7 @@ response_variable: inverter_snapshot
 ```
 
 Bij meerdere entries geef je `config_entry_id` op. De response bevat
-`transport`, `quality`, `sampled_at`, `age_seconds`, `sample_span_ms`, `values`,
+`transport`, `configured_transport`, `fallback_active`, `quality`, `sampled_at`, `age_seconds`, `sample_span_ms`, `values`,
 `mapping_validated`, `ems_data_ready` en `ems_control_ready`.
 Verouderde of ontbrekende waarden zijn `null`, nooit een opgevulde nul.
 Het zijn sequentiële registerreads, geen fysiek atomaire energiebalans.

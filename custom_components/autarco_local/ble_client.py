@@ -9,6 +9,7 @@ this beta until a physical write/read-back/restore test is completed.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from concurrent.futures import TimeoutError as FutureTimeoutError
 import logging
 import time
@@ -45,6 +46,7 @@ class BleSession:
         self.expected: tuple[int, int] | None = None
         self.generation = 0
         self.lock = asyncio.Lock()
+        self.connect_lock = asyncio.Lock()
         self.notifications = 0
         self.valid_frames = 0
         self.unmatched_frames = 0
@@ -70,6 +72,10 @@ class BleSession:
             self.pending.set_exception(AutarcoConnectionError("Bluetooth-verbinding verbroken"))
 
     async def ensure_connected(self) -> bool:
+        async with self.connect_lock:
+            return await self._async_connect()
+
+    async def _async_connect(self) -> bool:
         if self.connected:
             return False
         remaining = self.next_connect_at - time.monotonic()
@@ -239,6 +245,13 @@ class AutarcoBleClient(AutarcoModbusClient):
             finally:
                 self._disconnect_locked()
 
+    def read_all(self):
+        return replace(super().read_all(), source_transport="ble")
+
+    @property
+    def write_supported(self) -> bool:
+        return False
+
     def _read_blocks_locked(self, function: int, blocks) -> tuple[dict[int, int], list[str]]:
         registers: dict[int, int] = {}
         unsupported: list[str] = []
@@ -276,7 +289,7 @@ class AutarcoBleClient(AutarcoModbusClient):
             started = time.monotonic()
             registers, unsupported = self._read_blocks_locked(3, SETTING_REGISTER_BLOCKS)
             return AutarcoSettingsReadResult(
-                registers, round((time.monotonic() - started) * 1000, 1), tuple(unsupported)
+                registers, round((time.monotonic() - started) * 1000, 1), tuple(unsupported), "ble"
             )
 
     def _read_single_holding_locked(self, register: int, context: str) -> int:

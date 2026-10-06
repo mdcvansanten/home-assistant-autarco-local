@@ -25,6 +25,8 @@ if (PANEL_DIAG_V066) {
             ? "🔴 Verbinding verbroken"
             : event.event === "reconnected"
               ? "🟢 Verbinding hersteld"
+              : event.event === "transport_changed"
+                ? "🔄 Verbinding omgeschakeld"
               : "🔵 Verbonden";
           const downtime = event.downtime_seconds == null ? "—" : `${event.downtime_seconds} s`;
           const reason = event.reason || "—";
@@ -35,7 +37,6 @@ if (PANEL_DIAG_V066) {
     return `
       <section class="content-section">
         <h2>Diagnose & monitoring</h2>
-        <p class="muted">Modbus/TCP is hier de bron voor bereikbaarheid. De LAN-stick hoeft niet op ICMP/ping te reageren om lokaal via poort 502 gewoon bereikbaar te zijn.</p>
 
         <div class="lockbar ${loggingOn ? "unlocked" : "lockedbar"}">
           <div>
