@@ -61,7 +61,7 @@ temporary, config = Path(sys.argv[1]), Path(sys.argv[2]).resolve()
 restart, repository, branch = sys.argv[3:]
 archive = temporary / "source.zip"
 unpacked = temporary / "source"
-expected_version = "0.7.0b2"
+expected_version = "0.7.0b3"
 
 # Validate every archive member before extracting or changing HA files.
 with zipfile.ZipFile(archive) as bundle:

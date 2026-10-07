@@ -33,6 +33,10 @@ TX_UUID = "0000ffe1-0000-1000-8000-00805f9b34fb"
 RX_UUID = "0000ffe2-0000-1000-8000-00805f9b34fb"
 
 
+class BleOperationTimeout(TimeoutError):
+    """A bounded Bluetooth operation timed out, with its failing phase."""
+
+
 class BleSession:
     """Own exactly one BLE client, subscription and outstanding RTU request."""
 
@@ -57,6 +61,12 @@ class BleSession:
         self.adapter_source: str | None = None
         self.next_connect_at = 0.0
         self.connect_failures = 0
+        self.phase = "niet verbonden"
+        self.last_error: str | None = None
+
+    def _radio_context(self) -> str:
+        rssi = f"{self.last_rssi} dBm" if self.last_rssi is not None else "onbekend"
+        return f"adapter={self.adapter_source or 'onbekend'}, RSSI={rssi}"
 
     @property
     def connected(self) -> bool:
@@ -68,6 +78,8 @@ class BleSession:
         self.client = None
         self.generation += 1
         self.stream.clear()
+        self.phase = "niet verbonden"
+        self.last_error = "Bluetooth-verbinding verbroken"
         if self.pending is not None and not self.pending.done():
             self.pending.set_exception(AutarcoConnectionError("Bluetooth-verbinding verbroken"))
 
@@ -93,6 +105,8 @@ class BleSession:
             self.rssi_timestamp = time.time()
             self.adapter_source = info.source
         candidate = None
+        phase = "verbinden"
+        self.phase = phase
         try:
             async with asyncio.timeout(40):
                 candidate = await establish_connection(
@@ -104,6 +118,8 @@ class BleSession:
                     timeout=20,
                 )
                 self.client = candidate
+                phase = "BLE-kenmerken controleren"
+                self.phase = phase
                 if not candidate.services.get_characteristic(TX_UUID) or not candidate.services.get_characteristic(RX_UUID):
                     await candidate.clear_cache()
                     raise AutarcoConnectionError("Omvormer mist BLE-kenmerken FFE1/FFE2")
@@ -115,19 +131,27 @@ class BleSession:
                     if generation == self.generation:
                         self.receive(bytes(data))
 
+                phase = "notificaties aanmelden (FFE2)"
+                self.phase = phase
                 await candidate.start_notify(RX_UUID, notification)
                 if not candidate.is_connected:
                     raise AutarcoConnectionError("Bluetooth-verbinding viel weg tijdens aanmelden")
-        except BaseException:
+        except BaseException as err:
+            self.last_error = (
+                f"Bluetooth-time-out tijdens {phase} (maximaal 40 s; {self._radio_context()})"
+                if isinstance(err, TimeoutError) else f"{phase}: {type(err).__name__}: {err}"
+            )
             await self.disconnect()
-            if candidate is not None and candidate.is_connected:
-                await candidate.disconnect()
             self.connect_failures += 1
             self.next_connect_at = time.monotonic() + min(2 ** self.connect_failures, 60)
+            if isinstance(err, TimeoutError):
+                raise BleOperationTimeout(self.last_error) from err
             raise
         self.connect_failures = 0
         self.next_connect_at = 0.0
         self.connect_count += 1
+        self.phase = "verbonden"
+        self.last_error = None
         return True
 
     def receive(self, data: bytes) -> None:
@@ -151,6 +175,7 @@ class BleSession:
         self.client = None
         self.generation += 1
         self.stream.clear()
+        self.phase = "niet verbonden"
         if self.pending is not None and not self.pending.done():
             self.pending.set_exception(AutarcoConnectionError("Bluetooth-verbinding gesloten"))
         if candidate is not None:
@@ -167,23 +192,44 @@ class BleSession:
             self.stream.clear()
             self.expected = (function, count)
             pending = self.pending = asyncio.get_running_loop().create_future()
+            notifications_before = self.notifications
+            frames_before = self.valid_frames
+            unmatched_before = self.unmatched_frames
+            phase = "versturen (FFE1)"
+            self.phase = phase
             try:
                 async with asyncio.timeout(self.timeout):
                     await self.client.write_gatt_char(
                         TX_UUID, read_request(function, address, count), response=False
                     )
+                    phase = "wachten op antwoord (FFE2)"
+                    self.phase = phase
                     frame = await pending
-                return decode_read(frame, function, count)
+                values = decode_read(frame, function, count)
+                self.phase = "verbonden"
+                self.last_error = None
+                return values
             except ModbusReadException:
                 # Illegal register != broken link. The block reader can skip it.
+                self.phase = "verbonden"
                 raise
             except BaseException as err:
                 if isinstance(err, TimeoutError):
                     self.timeouts += 1
+                    self.last_error = (
+                        f"Bluetooth-time-out bij {phase}: FC{function:02d} register {address}, "
+                        f"aantal {count}, timeout {self.timeout:g} s; "
+                        f"notificaties={self.notifications - notifications_before}, "
+                        f"geldige frames={self.valid_frames - frames_before}, "
+                        f"onverwachte frames={self.unmatched_frames - unmatched_before}; "
+                        f"{self._radio_context()}"
+                    )
                 # A late response has no register address. Discard the entire
                 # connection before another read to prevent false correlation.
                 self.pending = None
                 await self.disconnect()
+                if isinstance(err, TimeoutError):
+                    raise BleOperationTimeout(self.last_error) from err
                 raise
             finally:
                 if not pending.done():
@@ -219,8 +265,21 @@ class AutarcoBleClient(AutarcoModbusClient):
         except ModbusReadException:
             raise
         except FutureTimeoutError as err:
+            # concurrent.futures.TimeoutError aliases built-in TimeoutError.
+            # A coroutine's 5/40-second timeout is therefore caught here too.
+            # Only an unfinished future has exceeded the executor guard.
+            if future.done() and not future.cancelled():
+                cause = future.exception()
+                if isinstance(cause, TimeoutError):
+                    raise AutarcoConnectionError(
+                        str(cause) or f"Bluetooth-time-out tijdens {self.session.phase}"
+                    ) from cause
             future.cancel()
-            raise AutarcoConnectionError("Bluetooth-bewerking duurde te lang") from err
+            raise AutarcoConnectionError(
+                f"Bluetooth-bewerking overschreed de 60 s bewaking; fase={self.session.phase}"
+            ) from err
+        except AutarcoConnectionError:
+            raise
         except Exception as err:
             raise AutarcoConnectionError(f"{type(err).__name__}: {err}") from err
 
@@ -239,11 +298,13 @@ class AutarcoBleClient(AutarcoModbusClient):
 
     def validate(self) -> None:
         with self._lock:
+            was_connected = self.session.connected
             try:
                 self._ensure_connected_locked()
                 self._submit(self.session.read(4, 33093, 1))
             finally:
-                self._disconnect_locked()
+                if not was_connected:
+                    self._disconnect_locked()
 
     def read_all(self):
         return replace(super().read_all(), source_transport="ble")
@@ -323,6 +384,8 @@ class AutarcoBleClient(AutarcoModbusClient):
             "ble_unmatched_frames": self.session.unmatched_frames,
             "ble_discarded_bytes": self.session.stream.dropped_bytes,
             "ble_timeouts": self.session.timeouts,
+            "ble_phase": self.session.phase,
+            "ble_last_error": self.session.last_error,
             "ble_connections": self.session.connect_count,
             "ble_write_supported": False,
         }

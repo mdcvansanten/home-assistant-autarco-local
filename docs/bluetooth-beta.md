@@ -1,4 +1,4 @@
-# Bluetooth beta 0.7.0b2
+# Bluetooth beta 0.7.0b3
 
 Deze beta voegt Bluetooth LE toe aan de bestaande Autarco Local-integratie.
 De bestaande config entry, entiteit-ID's en het Autarco-dashboard blijven behouden
@@ -53,6 +53,42 @@ RTU-aanvraag tegelijk actief en controleert CRC, functie en antwoordlengte.
 Een timeout verbreekt de sessie voordat een nieuwe aanvraag wordt verstuurd.
 Dat voorkomt dat een laat leesantwoord bij een ander register wordt ingedeeld.
 
+## Verbinding controleren zonder een nieuwe sessie te openen
+
+In de HA-terminal kun je de bestaande BlueZ-status opvragen:
+
+```bash
+bluetoothctl info 10:23:81:45:37:95
+```
+
+`Connected: yes` betekent dat de Pi op dat moment een BLE-verbinding met de
+omvormer heeft. Het vermeldt niet welk proces de verbinding gebruikt; Autarco
+Local kan die verbinding zelf bezitten. `Connected: no` betekent geen actieve
+verbinding via de geselecteerde adapter. Deze opdracht scant, verbindt en
+verbreekt niets. Als `bluetoothctl` in de add-on ontbreekt, is dat geen bewijs
+dat de Bluetooth-adapter of omvormer niet werkt.
+
+Als `bluetoothctl` ontbreekt, gebruik dan de bestaande Bleak-virtualenv met
+`tools/ble_connection_status.py` uit dezelfde GitHub-branch. Deze statuscontrole
+vraagt alleen `GetManagedObjects` aan BlueZ en toont de verbinding per adapter.
+Er wordt geen Bleak-client of scanner gestart. Een ontbrekend BlueZ-device
+wordt als onbekende status getoond, niet automatisch als een verbroken link.
+
+De herconfiguratietest gebruikt bestaande BLE-/TCP-clients op hetzelfde adres
+en Device-ID. Een geslaagde read laat een bestaande verbinding open; een nieuwe
+testverbinding wordt na de test gesloten. TCP-validatie deelt de lock en socket
+met de runtime-poll, zodat een logger geen tweede sessie hoeft te verwerken.
+
+BLE-timeouts vermelden de fase: verbinden, notificaties aanmelden, versturen
+of wachten op antwoord. Bij een read-timeout staan ook register, timeout,
+ontvangen notificaties, geldige frames en de bij verbinden waargenomen RSSI in
+de fout. De 60-secondenbewaking van de executor is een aparte melding. Bij
+mislukte BLE- en TCP-tests bewaart de log beide redenen:
+
+```bash
+ha core logs | grep -iE 'autarco.*herconfiguratie|Bluetooth:.*wifi/TCP:' | tail -n 5
+```
+
 ## Eerst de bestaande virtualenv gebruiken
 
 Pak het pakket uit onder `/config/autarco-ble-test` en gebruik de meegeleverde
@@ -81,14 +117,14 @@ Plak dit in de **Terminal & SSH**-add-on van Home Assistant OS:
   autarco_script="$(mktemp /tmp/autarco-ble-deploy.XXXXXX)"
   trap 'rm -f -- "$autarco_script"' EXIT
   curl -fSL --connect-timeout 15 --max-time 60 \
-    'https://raw.githubusercontent.com/mdcvansanten/home-assistant-autarco-local/codex/ble-transport-20261005/tools/deploy_ble_from_github.sh?v=0.7.0b2' \
+    'https://raw.githubusercontent.com/mdcvansanten/home-assistant-autarco-local/codex/ble-transport-20261005/tools/deploy_ble_from_github.sh?v=0.7.0b3' \
     -o "$autarco_script"
   bash "$autarco_script"
 )
 ```
 
 Het script haalt `codex/ble-transport-20261005` op, valideert het archief en versie
-`0.7.0b2`, bewaart de bestaande component in `/config/backups`, vervangt de
+`0.7.0b3`, bewaart de bestaande component in `/config/backups`, vervangt de
 component, voert `ha core check` uit en vraagt daarna een HA-herstart aan.
 Als de configuratiecontrole faalt, herstelt het de oorspronkelijke component
 en vraagt het geen herstart aan. Download en tijdelijke uitpakmappen worden ook
@@ -106,7 +142,7 @@ in het bovenstaande blok en controleer/herstart HA daarna handmatig.
 ### Met het losse installatiepakket
 
 1. Plaats de ZIP en `install_ble_beta.sh` in `/config`.
-2. Voer `bash /config/install_ble_beta.sh /config/autarco-local-ble-0.7.0b2.zip` uit.
+2. Voer `bash /config/install_ble_beta.sh /config/autarco-local-ble-0.7.0b3.zip` uit.
 3. De installer controleert de pakketinhoud, bewaart de vorige component onder
    `/config/backups/autarco_ble_<tijdstip>_<id>/autarco_local`, vervangt uitsluitend
    de component en ruimt de tijdelijke uitpakmap op. De ZIP blijft bewaard.

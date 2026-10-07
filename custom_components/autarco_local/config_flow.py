@@ -98,35 +98,49 @@ async def _validate_input(hass, data: dict[str, Any], entry=None) -> None:
         timeout=data[CONF_TIMEOUT],
         retries=data[CONF_RETRIES],
     )
-    if is_ble:
-        from .ble_client import AutarcoBleClient
-        from .failover_client import AutarcoFailoverClient
-        # Reconfigure a loaded BLE entry using its existing connection. A second
-        # validation session could compete with the permanent session.
-        if entry and getattr(entry, "runtime_data", None):
-            existing = entry.runtime_data.client
-            same_ble = isinstance(existing, (AutarcoBleClient, AutarcoFailoverClient)) and existing._settings.host == settings.host
-            if same_ble and existing._settings.device_id == settings.device_id:
-                primary = existing.ble if isinstance(existing, AutarcoFailoverClient) else existing
-                try:
-                    await hass.async_add_executor_job(primary.validate)
-                except AutarcoConnectionError:
-                    if not is_failover:
-                        raise
-                    fallback_settings = AutarcoConnectionSettings(
-                        data[CONF_HOST], settings.port, settings.device_id, settings.timeout, settings.retries
-                    )
-                    await hass.async_add_executor_job(AutarcoModbusClient(fallback_settings).validate)
-                return
-        if is_failover:
-            tcp_settings = AutarcoConnectionSettings(data[CONF_HOST], settings.port, settings.device_id,
-                                                     settings.timeout, settings.retries)
-            client = AutarcoFailoverClient(hass, settings, tcp_settings)
-        else:
-            client = AutarcoBleClient(hass, settings)
+    from .ble_client import AutarcoBleClient
+    from .failover_client import AutarcoFailoverClient
+
+    existing = getattr(getattr(entry, "runtime_data", None), "client", None)
+    if isinstance(existing, AutarcoFailoverClient):
+        existing_ble, existing_tcp = existing.ble, existing.tcp
+    elif isinstance(existing, AutarcoBleClient):
+        existing_ble, existing_tcp = existing, None
     else:
-        client = AutarcoModbusClient(settings)
-    await hass.async_add_executor_job(client.validate)
+        existing_ble, existing_tcp = None, existing
+
+    def tcp_client(tcp_settings):
+        # A logger may only process one TCP session. The existing client's
+        # validation shares its poll lock/socket rather than opening a rival.
+        if isinstance(existing_tcp, AutarcoModbusClient) and all(
+            getattr(existing_tcp._settings, key) == getattr(tcp_settings, key)
+            for key in ("host", "port", "device_id")
+        ):
+            return existing_tcp
+        return AutarcoModbusClient(tcp_settings)
+
+    if is_ble:
+        same_ble = existing_ble is not None and all(
+            getattr(existing_ble._settings, key) == getattr(settings, key)
+            for key in ("host", "device_id")
+        )
+        primary = existing_ble if same_ble else AutarcoBleClient(hass, settings)
+        try:
+            await hass.async_add_executor_job(primary.validate)
+        except AutarcoConnectionError as ble_error:
+            if not is_failover:
+                raise
+            tcp_settings = AutarcoConnectionSettings(
+                data[CONF_HOST], settings.port, settings.device_id, settings.timeout, settings.retries
+            )
+            try:
+                await hass.async_add_executor_job(tcp_client(tcp_settings).validate)
+            except AutarcoConnectionError as tcp_error:
+                raise AutarcoConnectionError(
+                    f"Bluetooth: {ble_error}; wifi/TCP: {tcp_error}"
+                ) from tcp_error
+    else:
+        await hass.async_add_executor_job(tcp_client(settings).validate)
 
 
 def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:

@@ -72,7 +72,7 @@ def test_branch_deploy_preserves_config_backs_up_checks_restarts_and_cleans(depl
     _, config, target, temporary, env = deployment
     result = deploy(deployment)
     assert result.returncode == 0, result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b3"
     assert not (target / "old_component.py").exists()
     backup = list((config / "backups").glob("*/autarco_local/old_component.py"))
     assert len(backup) == 1 and backup[0].read_text() == "# previous source"
@@ -112,7 +112,7 @@ def test_no_restart_option_installs_without_calling_ha(deployment):
     _, _, target, temporary, env = deployment
     result = deploy(deployment, "--no-restart")
     assert result.returncode == 0, result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b3"
     assert not Path(env["DEPLOY_TEST_HA_LOG"]).exists()
     assert not list(temporary.iterdir())
 
@@ -141,7 +141,7 @@ def test_failed_restart_reports_installed_files_without_claiming_success(deploym
     _, config, target, temporary, env = deployment
     result = deploy(deployment, overrides={"DEPLOY_TEST_RESTART_FAIL": "1"})
     assert result.returncode != 0 and "herstart is niet bevestigd" in result.stderr
-    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b2"
+    assert json.loads((target / "manifest.json").read_text())["version"] == "0.7.0b3"
     assert len(list((config / "backups").glob("*/autarco_local"))) == 1
     assert Path(env["DEPLOY_TEST_HA_LOG"]).read_text().splitlines() == ["core check", "core restart"]
     assert not list(temporary.iterdir())

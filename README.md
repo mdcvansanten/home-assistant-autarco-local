@@ -2,7 +2,7 @@
 
 # Bluetooth beta
 
-De ontwikkelversie **0.7.0b2** gebruikt Bluetooth LE als hoofdverbinding met
+De ontwikkelversie **0.7.0b3** gebruikt Bluetooth LE als hoofdverbinding met
 automatische wifi/Modbus TCP-terugval en Bluetooth-herstel op de achtergrond.
 Gebruik dezelfde Autarco Local-config entry via **Herconfigureren**. Deze modus
 is alleen-lezen, ook tijdens wifi-terugval. De terminaldeploy schakelt de drie

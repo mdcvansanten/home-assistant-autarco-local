@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.7.0b3 — Reuse live connections and identify BLE timeouts
+
+- Reconfiguration reuses the existing TCP logger socket under its poll lock.
+  It no longer opens a second logger session for the fallback validation read.
+- A successful validation read preserves an established BLE connection; newly
+  opened validation connections are closed afterwards.
+- BLE timeouts distinguish connecting, subscribing to FFE2, writing to FFE1 and
+  waiting for a register response, including notification counters and observed
+  adapter/RSSI. Coroutine timeouts retain their cause instead of being reported
+  as the executor's 60-second guard timeout.
+- Failed reconfiguration preserves both BLE and TCP reasons, including when an
+  existing BLE client is reused. Connection failure cleanup remains bounded.
+- A standalone BlueZ status command reports current connection state without
+  scanning, opening another session or disconnecting the inverter.
+- Physical connectivity still needs verification on the Raspberry Pi/inverter.
+
 ## 0.7.0b2 — Bluetooth primary with Wi-Fi fallback
 
 - One existing Autarco Local entry can now use BLE first and Modbus TCP over the

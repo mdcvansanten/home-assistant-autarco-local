@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the exact reviewed beta archive, preserving a rollback copy.
 set -euo pipefail
-autarco_zip="${1:-/config/autarco-local-ble-0.7.0b2.zip}"
+autarco_zip="${1:-/config/autarco-local-ble-0.7.0b3.zip}"
 autarco_config="${2:-/config}"
 python3 - "$autarco_zip" "$autarco_config" <<'PY'
 from datetime import datetime, timezone
@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory(prefix="autarco-ble-install-") as temporary:
         raise SystemExit("Dit is niet het verwachte Autarco BLE-installatiepakket")
     root = roots[0].parent
     manifest = json.loads(roots[0].read_text())
-    if manifest.get("version") != "0.7.0b2":
+    if manifest.get("version") != "0.7.0b3":
         raise SystemExit("Onverwachte pakketversie")
     actual = {str(file.relative_to(root)) for file in root.rglob("*") if file.is_file()}
     if actual != set(manifest["sha256"]) | {"bundle_manifest.json"}:
@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix="autarco-ble-install-") as temporary:
             raise SystemExit(f"Pakketcontrole mislukt: {name}")
     source = root / "custom_components" / "autarco_local"
     version = json.loads((source / "manifest.json").read_text())["version"]
-    if version != "0.7.0b2":
+    if version != "0.7.0b3":
         raise SystemExit("Onverwachte integratieversie")
     target = config / "custom_components" / "autarco_local"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -77,7 +77,7 @@ with tempfile.TemporaryDirectory(prefix="autarco-ble-install-") as temporary:
     finally:
         if stage.exists():
             shutil.rmtree(stage)
-    print("Autarco Local 0.7.0b2 geïnstalleerd. Omvormerinstellingen zijn niet gewijzigd.")
+    print("Autarco Local 0.7.0b3 geïnstalleerd. Omvormerinstellingen zijn niet gewijzigd.")
     if backup.exists():
         print(f"Vorige integratie: {backup / 'autarco_local'}")
     print("ZIP uitgepakt; tijdelijke uitpakmap wordt nu opgeruimd. Originele ZIP blijft bewaard.")
