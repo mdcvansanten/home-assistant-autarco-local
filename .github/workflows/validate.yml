@@ -6,6 +6,17 @@ on:
   workflow_dispatch:
 
 jobs:
+  bluetooth-tests:
+    name: BLE protocol and HA quality regression tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: pip install homeassistant==2026.8.1 pymodbus==3.13.1 pytest pytest-asyncio aiousbwatcher==1.1.2 serialx==1.8.2
+      - run: python -m pytest -q
+
   hacs:
     name: HACS validation
     runs-on: ubuntu-latest

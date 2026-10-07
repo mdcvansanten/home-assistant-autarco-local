@@ -1,5 +1,49 @@
 # Changelog
 
+## 0.7.0b3 — Reuse live connections and identify BLE timeouts
+
+- Reconfiguration reuses the existing TCP logger socket under its poll lock.
+  It no longer opens a second logger session for the fallback validation read.
+- A successful validation read preserves an established BLE connection; newly
+  opened validation connections are closed afterwards.
+- BLE timeouts distinguish connecting, subscribing to FFE2, writing to FFE1 and
+  waiting for a register response, including notification counters and observed
+  adapter/RSSI. Coroutine timeouts retain their cause instead of being reported
+  as the executor's 60-second guard timeout.
+- Failed reconfiguration preserves both BLE and TCP reasons, including when an
+  existing BLE client is reused. Connection failure cleanup remains bounded.
+- A standalone BlueZ status command reports current connection state without
+  scanning, opening another session or disconnecting the inverter.
+- Physical connectivity still needs verification on the Raspberry Pi/inverter.
+
+## 0.7.0b2 — Bluetooth primary with Wi-Fi fallback
+
+- One existing Autarco Local entry can now use BLE first and Modbus TCP over the
+  Wi-Fi logger as automatic fallback. Each runtime/settings snapshot records its
+  source, and a source change immediately refreshes settings.
+- BLE recovery runs in the background every minute while TCP telemetry continues.
+  A temperature probe prepares recovery; a complete BLE runtime poll with all
+  essential telemetry registers is required before switching back.
+- Releasing Bluetooth for the Solis app keeps TCP polling active. Recovery tasks
+  are cancelled on handoff/shutdown, and concurrent connects share one BLE session.
+- The dashboard shows the active route and replaces the obsolete Modbus/ping text.
+- GitHub terminal deployment disables only the three known legacy ping/TCP push
+  automations, with YAML backups and rollback together with the component if the
+  HA configuration check fails.
+- The combined route remains read-only, including during TCP fallback. Existing
+  explicitly configured TCP-only settings pilots retain their original guards.
+
+## 0.7.0b1 — Bluetooth transport beta
+
+- Persistent BLE transport through HA's shared Bluetooth manager; serialized,
+  CRC-validated Modbus 03/04 reads and connection reset after timeout.
+- BLE/TCP reconfiguration preserves entity identity and resets telemetry validation
+  when changing connection identity.
+- Separate settings polling, explicit freshness and missing-register handling,
+  pause/resume handoff for local phone access, telemetry snapshot response service.
+- BLE writes and automated EMS actuation remain blocked pending hardware validation.
+- Standalone read-only probe and checked, reversible package installation.
+
 ## 0.6.5
 
 - Replaced the separate v0.6.4 Settings Center page with one Autarco Local dashboard shell containing `Overzicht`, `PV`, `Batterij`, `Diagnose` and `Instellingen` tabs.

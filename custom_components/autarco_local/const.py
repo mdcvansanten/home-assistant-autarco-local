@@ -20,6 +20,22 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_TIMEOUT: Final = "timeout"
 CONF_RETRIES: Final = "retries"
 CONF_BATTERY_SOC_ENTITY: Final = "battery_soc_entity"
+CONF_TRANSPORT: Final = "transport"
+CONF_BLE_ADDRESS: Final = "ble_address"
+TRANSPORT_TCP: Final = "tcp"
+TRANSPORT_BLE: Final = "ble"
+TRANSPORT_BLE_TCP: Final = "ble_tcp"
+BLE_TRANSPORTS: Final = (TRANSPORT_BLE, TRANSPORT_BLE_TCP)
+BLE_RECOVERY_INTERVAL: Final = 60
+CONF_RUNTIME_VALIDATED: Final = "runtime_mapping_validated"
+SETTINGS_SCAN_INTERVAL: Final = 60
+# Narrow input blocks cover exactly the existing sensors. Avoid large ranges
+# containing reserved addresses on the BLE path.
+BLE_RUNTIME_BLOCKS: Final = (
+    (33022, 6), (33029, 4), (33035, 1), (33037, 2),
+    (33049, 10), (33070, 6), (33079, 2), (33093, 2),
+    (33133, 3), (33139, 1), (33147, 1), (33149, 4),
+)
 PLATFORMS: Final = ["binary_sensor", "sensor", "switch"]
 
 # Runtime/input registers used by the existing monitoring layer.

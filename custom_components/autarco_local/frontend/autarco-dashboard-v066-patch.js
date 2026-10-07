@@ -93,7 +93,7 @@ if (PANEL) {
           </div>
           <div class="dashboard-block compact">
             <h3>🩺 Diagnose</h3>
-            <p><strong>${status(connection)}</strong> lokale Modbusverbinding.</p>
+            <p><strong>${status(connection)}</strong> lokale verbinding.</p>
             <p class="muted">Gebruik de tab <strong>Diagnose</strong> voor polling, beschikbaarheid, storingshistorie en logging.</p>
           </div>
         </div>

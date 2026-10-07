@@ -1,5 +1,14 @@
 # Autarco Local
 
+# Bluetooth beta
+
+De ontwikkelversie **0.7.0b3** gebruikt Bluetooth LE als hoofdverbinding met
+automatische wifi/Modbus TCP-terugval en Bluetooth-herstel op de achtergrond.
+Gebruik dezelfde Autarco Local-config entry via **Herconfigureren**. Deze modus
+is alleen-lezen, ook tijdens wifi-terugval. De terminaldeploy schakelt de drie
+bekende oude ping/Modbus-pushmeldingen uit en bewaart hun YAML als back-up.
+Zie [installatie, fysieke test en EMS-koppeling](docs/bluetooth-beta.md).
+
 ![Autarco Local](custom_components/autarco_local/brand/logo.png)
 
 Lokale Home Assistant-integratie voor de Autarco hybride omvormer in de thuisinstallatie, met Autarco LH-MII als huidige gevalideerde hardwarelijn.

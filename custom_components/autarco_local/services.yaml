@@ -36,7 +36,7 @@ lock_settings:
 set_off_grid_minimum_soc:
   name: Set Off-grid minimum SOC
   description: >-
-    Guarded Expert write for the single hardware-validated Off-grid minimum SOC
+    TCP-only guarded Expert write for the Off-grid minimum SOC
     setting (holding register 43137). Accepts the documented 10–100% range and
     requires an active PIN unlock plus explicit confirmation. If Off-grid is
     already active it remains active. If Autarco Local must temporarily activate
@@ -70,6 +70,26 @@ set_off_grid_minimum_soc:
       description: >-
         Optional. Required only when more than one Autarco Local config entry is
         loaded.
+      required: false
+      selector:
+        text:
+
+get_snapshot:
+  name: Get inverter snapshot
+  description: Returns timestamped local telemetry, data quality and EMS readiness. Stale values return null. Does not write any registers.
+  fields:
+    config_entry_id:
+      name: Config entry ID
+      required: false
+      selector:
+        text:
+
+refresh_settings:
+  name: Refresh inverter settings
+  description: Reads known holding registers through the current connection without changing any inverter setting.
+  fields:
+    config_entry_id:
+      name: Config entry ID
       required: false
       selector:
         text:

@@ -5,11 +5,13 @@ from __future__ import annotations
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, PLATFORMS
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 from .coordinator import AutarcoLocalCoordinator
 from .settings_panel import async_register_settings_panel, unregister_settings_panel
 from .settings_security import (
@@ -153,6 +155,8 @@ async def _async_handle_set_off_grid_minimum_soc(
         hass,
         call.data.get("config_entry_id"),
     )
+    if getattr(coordinator.client, "write_supported", True) is False:
+        raise HomeAssistantError("Deze Bluetooth-verbinding met eventuele wifi-terugval is alleen-lezen in deze beta.")
     if not settings_are_unlocked(hass, entry.entry_id, user_id):
         raise HomeAssistantError(
             "Autarco Local-instellingen zijn vergrendeld. Ontgrendel eerst met de instellingen-PIN."
@@ -177,6 +181,39 @@ def _async_register_services(hass: HomeAssistant) -> None:
 
     async def write_handler(call: ServiceCall) -> None:
         await _async_handle_set_off_grid_minimum_soc(hass, call)
+
+    async def snapshot_handler(call: ServiceCall) -> dict:
+        from .sensor import SENSORS
+        from .runtime_quality import EMS_KEYS, SENSOR_REGISTERS
+        entry, coordinator = _loaded_entry_and_coordinator(hass, call.data.get("config_entry_id"))
+        usable = coordinator.data_quality in ("live", "partial")
+        values = {desc.key: desc.value_fn(coordinator.data or {}) if usable and all(
+                      address in (coordinator.data or {}) for address in SENSOR_REGISTERS[desc.key]
+                  ) else None
+                  for desc in SENSORS if desc.key in EMS_KEYS}
+        return {
+            "entry_id": entry.entry_id, "transport": coordinator.transport,
+            "configured_transport": coordinator.configured_transport,
+            "fallback_active": bool(coordinator.network_health.get("fallback_active", False)),
+            "quality": coordinator.data_quality,
+            "sampled_at": coordinator.last_success_at.isoformat() if coordinator.last_success_at else None,
+            "age_seconds": coordinator.runtime_age_seconds,
+            "sample_span_ms": coordinator.runtime_read_span_ms,
+            "ems_data_ready": coordinator.ems_data_ready,
+            "ems_control_ready": False,
+            "values": values,
+            "mapping_validated": bool(entry.options.get("runtime_mapping_validated", False)),
+            "sign_convention": "existing Autarco mapping; verify against P1 and Solis app",
+        }
+
+    async def refresh_handler(call: ServiceCall) -> None:
+        _, coordinator = _loaded_entry_and_coordinator(hass, call.data.get("config_entry_id"))
+        await coordinator.async_refresh_settings()
+        coordinator.async_update_listeners()
+
+    hass.services.async_register(DOMAIN, "get_snapshot", snapshot_handler,
+                                 schema=LOCK_SERVICE_SCHEMA, supports_response=SupportsResponse.ONLY)
+    hass.services.async_register(DOMAIN, "refresh_settings", refresh_handler, schema=LOCK_SERVICE_SCHEMA)
 
     hass.services.async_register(
         DOMAIN,
@@ -217,7 +254,11 @@ async def async_setup_entry(
 
     coordinator = AutarcoLocalCoordinator(hass, entry)
     await coordinator.async_initialize()
-    await coordinator.async_config_entry_first_refresh()
+    try:
+        await coordinator.async_config_entry_first_refresh()
+    except BaseException:
+        await coordinator.async_shutdown()
+        raise
 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

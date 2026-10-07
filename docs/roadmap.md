@@ -38,6 +38,7 @@ Deze onderwerpen horen later in het afzonderlijke **SNS-platformproject**.
 
 - [x] Bekabelde loggerverbinding en vast IP-adres
 - [x] Persistente Modbus TCP-verbinding (v0.3.2)
+- [x] Bluetooth als hoofdverbinding met automatische wifi/TCP-terugval en herstel op de achtergrond (0.7.0b2, fysieke duurtest nog nodig)
 - [x] Reconnect/retry-afhandeling en drie-failure beschikbaarheidsdrempel
 - [x] Batterijpolariteit gecorrigeerd (v0.3.3)
 - [x] Uptime/downtime en verbindingslogging (v0.3.4)

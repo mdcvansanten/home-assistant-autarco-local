@@ -4,8 +4,8 @@
 // Stability, transaction UX, unlock guard, hardware safety, flow UX, concise
 // dependency warnings, cross-setting relation status and relation-help state are intentionally last.
 import "./autarco-dashboard-bootstrap.js?v=0.6.5.2";
-import "./autarco-dashboard-v066-patch.js?v=0.6.6.2";
-import "./autarco-dashboard-v066-diagnostics.js?v=0.6.6";
+import "./autarco-dashboard-v066-patch.js?v=0.7.0b3";
+import "./autarco-dashboard-v066-diagnostics.js?v=0.7.0b3";
 import "./autarco-dashboard-v066-data-quality.js?v=0.6.6";
 import "./autarco-dashboard-v066-write.js?v=0.6.6";
 import "./autarco-dashboard-v066-ui-state.js?v=0.6.6.5";
@@ -17,3 +17,4 @@ import "./autarco-dashboard-v066-flow-ux.js?v=0.6.6.12";
 import "./autarco-dashboard-v066-setting-warnings.js?v=0.6.6.13";
 import "./autarco-dashboard-v066-relation-status.js?v=0.6.6.14";
 import "./autarco-dashboard-v066-relation-state.js?v=0.6.6.15";
+import "./autarco-dashboard-ble.js?v=0.7.0b3";

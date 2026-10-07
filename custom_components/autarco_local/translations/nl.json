@@ -1,7 +1,7 @@
 {
   "config": {
     "abort": {
-      "already_configured": "Dit IP-adres en deze poort zijn al geconfigureerd.",
+      "already_configured": "Deze verbinding is al geconfigureerd.",
       "reconfigure_successful": "Autarco Local is opnieuw geconfigureerd."
     },
     "error": {
@@ -17,10 +17,15 @@
           "port": "Poort",
           "scan_interval": "Verversingsinterval",
           "timeout": "Timeout",
-          "retries": "Aantal nieuwe pogingen"
+          "retries": "Aantal nieuwe pogingen",
+          "transport": "Verbinding",
+          "ble_address": "Bluetooth-adres"
         },
-        "description": "Wijzig de verbinding en controleer deze met een uitsluitend-lezen Modbus-opdracht.",
-        "title": "Autarco Local opnieuw configureren"
+        "description": "Kies Bluetooth met wifi-terugval voor automatische omschakeling. Vul het Bluetooth-adres én het bestaande IP-adres en de Modbus-poort van de wifi-logger in. De verbindingstest leest alleen gegevens. Herconfigureren behoudt bestaande entiteiten.",
+        "title": "Autarco Local opnieuw configureren",
+        "data_description": {
+          "device_id": "Bij BLE het verwachte antwoordadres (jouw omvormer: 1). Het leesverzoek gebruikt FE."
+        }
       },
       "user": {
         "data": {
@@ -30,10 +35,15 @@
           "port": "Poort",
           "scan_interval": "Verversingsinterval",
           "timeout": "Timeout",
-          "retries": "Aantal nieuwe pogingen"
+          "retries": "Aantal nieuwe pogingen",
+          "transport": "Verbinding",
+          "ble_address": "Bluetooth-adres"
         },
-        "description": "Maakt uitsluitend een leesverbinding via Modbus TCP.",
-        "title": "Autarco Local toevoegen"
+        "description": "Kies Bluetooth met wifi-terugval voor automatische omschakeling. Vul het Bluetooth-adres én het bestaande IP-adres en de Modbus-poort van de wifi-logger in. De verbindingstest leest alleen gegevens. Herconfigureren behoudt bestaande entiteiten.",
+        "title": "Autarco Local toevoegen",
+        "data_description": {
+          "device_id": "Bij BLE het verwachte antwoordadres (jouw omvormer: 1). Het leesverzoek gebruikt FE."
+        }
       }
     }
   },
@@ -50,104 +60,283 @@
           "settings_pin_status": "PIN-status",
           "settings_new_pin": "Nieuwe PIN",
           "settings_clear_pin": "PIN verwijderen",
-          "battery_soc_entity": "Betrouwbare batterij-SOC bron"
+          "battery_soc_entity": "Betrouwbare batterij-SOC bron",
+          "runtime_mapping_validated": "EMS-meetwaarden en tekens onafhankelijk gecontroleerd"
         },
         "data_description": {
           "settings_pin_status": "Laat zien of er een instellingen-PIN is ingesteld.",
           "settings_new_pin": "Stel de PIN in of vervang hem. Gebruik 4 tot en met 8 cijfers.",
           "settings_clear_pin": "Verwijder de ingestelde PIN. Writes blijven daarna geblokkeerd totdat opnieuw een PIN is ingesteld.",
-          "battery_soc_entity": "Kies een Home Assistant sensor die de werkelijke batterij-SOC in % toont. Voor jouw installatie kan dit de Dyness SOC-sensor zijn. Deze waarde wordt alleen gebruikt als veiligheidsvoorwaarde voor tijdelijke Off-grid-activatie."
+          "battery_soc_entity": "Kies een Home Assistant sensor die de werkelijke batterij-SOC in % toont. Voor jouw installatie kan dit de Dyness SOC-sensor zijn. Deze waarde wordt alleen gebruikt als veiligheidsvoorwaarde voor tijdelijke Off-grid-activatie.",
+          "runtime_mapping_validated": "Pas aanzetten nadat PV, net, huisverbruik, batterij-SOC en batterijvermogen onder verschillende belastingen met Solis/P1/Dyness zijn vergeleken. Dit valideert alleen data voor EMS-monitoring; het opent geen writes."
         }
       }
     }
   },
   "entity": {
     "binary_sensor": {
-      "connection": {"name": "Modbus-verbinding"},
-      "pv_production": {"name": "PV-productie actief"}
+      "connection": {
+        "name": "Lokale verbinding"
+      },
+      "pv_production": {
+        "name": "PV-productie actief"
+      },
+      "ems_data_ready": {
+        "name": "EMS-data gereed"
+      }
     },
     "sensor": {
-      "active_power": {"name": "Actief omvormervermogen"},
-      "battery_current": {"name": "Batterijstroom"},
-      "battery_power": {"name": "Batterijvermogen"},
-      "battery_soc": {"name": "Batterij-SOC"},
-      "battery_voltage": {"name": "Batterijspanning"},
-      "device_time": {"name": "Omvormerklok"},
-      "failed_polls": {"name": "Mislukte metingen"},
-      "grid_frequency": {"name": "Netfrequentie"},
-      "grid_power": {"name": "Netvermogen"},
-      "house_load_power": {"name": "Huisverbruik"},
-      "phase_voltage_l1": {"name": "Fasespanning L1"},
-      "phase_voltage_l2": {"name": "Fasespanning L2"},
-      "phase_voltage_l3": {"name": "Fasespanning L3"},
-      "pv_current_1": {"name": "PV1-stroom"},
-      "pv_current_2": {"name": "PV2-stroom"},
-      "pv_power": {"name": "PV-vermogen"},
-      "pv_voltage_1": {"name": "PV1-spanning"},
-      "pv_voltage_2": {"name": "PV2-spanning"},
-      "register_count": {"name": "Aantal registers"},
-      "response_time": {"name": "Volledige pollduur"},
-      "success_rate": {"name": "Netwerk succespercentage"},
-      "temperature": {"name": "Omvormertemperatuur"},
-      "last_success": {"name": "Laatste succesvolle meting"},
-      "total_retries": {"name": "Totaal aantal retries"},
-      "reconnect_count": {"name": "Aantal reconnects"},
-      "consecutive_failures": {"name": "Opeenvolgende fouten"},
-      "read_time": {"name": "Modbus-leestijd"},
-      "connect_time": {"name": "TCP-verbindingsduur"},
-      "average_poll_time": {"name": "Gemiddelde pollduur"},
-      "min_poll_time": {"name": "Minimale pollduur"},
-      "max_poll_time": {"name": "Maximale pollduur"},
-      "connected_since": {"name": "Verbonden sinds"},
-      "connection_uptime": {"name": "Huidige verbindingstijd"},
-      "longest_connection": {"name": "Langste verbinding"},
-      "last_disconnect": {"name": "Laatste verbreking"},
-      "last_reconnect": {"name": "Laatste herverbinding"},
-      "total_downtime": {"name": "Totale uitvaltijd"},
-      "availability": {"name": "Beschikbaarheid verbinding"},
-      "health_score": {"name": "Gezondheidsscore verbinding"},
-      "disconnect_count": {"name": "Aantal verbroken verbindingen"},
-      "pv_power_1": {"name": "PV1-vermogen"},
-      "pv_power_2": {"name": "PV2-vermogen"},
-      "pv_voltage_3": {"name": "PV3-spanning"},
-      "pv_current_3": {"name": "PV3-stroom"},
-      "pv_power_3": {"name": "PV3-vermogen"},
-      "pv_voltage_4": {"name": "PV4-spanning"},
-      "pv_current_4": {"name": "PV4-stroom"},
-      "pv_power_4": {"name": "PV4-vermogen"},
-      "pv_energy_total": {"name": "PV-opbrengst totaal"},
-      "pv_energy_month": {"name": "PV-opbrengst deze maand"},
-      "pv_energy_today": {"name": "PV-opbrengst vandaag"},
-      "pv_energy_year": {"name": "PV-opbrengst dit jaar"},
-      "pv_alarm_code": {"name": "PV-alarmcode"},
-      "pv_bus_voltage": {"name": "PV-busspanning"},
-      "setting_overcharge_soc": {"name": "🔴 Overlaad-SOC"},
-      "setting_overdischarge_soc": {"name": "🟡 Minimum batterij-SOC"},
-      "setting_force_charge_soc": {"name": "🟡 Force-charge-SOC"},
-      "setting_reserve_soc": {"name": "🟢 Reserve-SOC"},
-      "setting_force_charge_power_limit": {"name": "🟡 Force-charge vermogenslimiet"},
-      "setting_self_use_mode": {"name": "🟢 Zelfverbruikmodus"},
-      "setting_time_of_use_mode": {"name": "🟢 Nethandelschema / Time-of-use"},
-      "setting_off_grid_mode": {"name": "🟡 Off-gridmodus"},
-      "setting_reserve_battery_mode": {"name": "🟢 Reservebatterijmodus"},
-      "setting_allow_grid_charge": {"name": "🟡 Laden vanuit net toestaan"},
-      "setting_feed_in_priority_mode": {"name": "🟢 Terugleverprioriteit"},
-      "setting_off_grid_overdischarge_soc": {"name": "🟡 Minimum-SOC off-grid"},
-      "setting_time_charge_current": {"name": "🟡 Geplande laadstroom"},
-      "setting_time_discharge_current": {"name": "🟡 Geplande ontlaadstroom"},
-      "setting_charge_start_1": {"name": "🟢 Laadslot 1 start"},
-      "setting_charge_end_1": {"name": "🟢 Laadslot 1 einde"},
-      "setting_discharge_start_1": {"name": "🟢 Ontlaadslot 1 start"},
-      "setting_discharge_end_1": {"name": "🟢 Ontlaadslot 1 einde"},
-      "setting_charge_start_2": {"name": "🟢 Laadslot 2 start"},
-      "setting_charge_end_2": {"name": "🟢 Laadslot 2 einde"},
-      "setting_discharge_start_2": {"name": "🟢 Ontlaadslot 2 start"},
-      "setting_discharge_end_2": {"name": "🟢 Ontlaadslot 2 einde"},
-      "setting_charge_start_3": {"name": "🟢 Laadslot 3 start"},
-      "setting_charge_end_3": {"name": "🟢 Laadslot 3 einde"},
-      "setting_discharge_start_3": {"name": "🟢 Ontlaadslot 3 start"},
-      "setting_discharge_end_3": {"name": "🟢 Ontlaadslot 3 einde"},
-      "settings_status": {"name": "Status instellingen uitlezen"}
+      "active_power": {
+        "name": "Actief omvormervermogen"
+      },
+      "battery_current": {
+        "name": "Batterijstroom"
+      },
+      "battery_power": {
+        "name": "Batterijvermogen"
+      },
+      "battery_soc": {
+        "name": "Batterij-SOC"
+      },
+      "battery_voltage": {
+        "name": "Batterijspanning"
+      },
+      "device_time": {
+        "name": "Omvormerklok"
+      },
+      "failed_polls": {
+        "name": "Mislukte metingen"
+      },
+      "grid_frequency": {
+        "name": "Netfrequentie"
+      },
+      "grid_power": {
+        "name": "Netvermogen"
+      },
+      "house_load_power": {
+        "name": "Huisverbruik"
+      },
+      "phase_voltage_l1": {
+        "name": "Fasespanning L1"
+      },
+      "phase_voltage_l2": {
+        "name": "Fasespanning L2"
+      },
+      "phase_voltage_l3": {
+        "name": "Fasespanning L3"
+      },
+      "pv_current_1": {
+        "name": "PV1-stroom"
+      },
+      "pv_current_2": {
+        "name": "PV2-stroom"
+      },
+      "pv_power": {
+        "name": "PV-vermogen"
+      },
+      "pv_voltage_1": {
+        "name": "PV1-spanning"
+      },
+      "pv_voltage_2": {
+        "name": "PV2-spanning"
+      },
+      "register_count": {
+        "name": "Aantal registers"
+      },
+      "response_time": {
+        "name": "Volledige pollduur"
+      },
+      "success_rate": {
+        "name": "Netwerk succespercentage"
+      },
+      "temperature": {
+        "name": "Omvormertemperatuur"
+      },
+      "last_success": {
+        "name": "Laatste succesvolle meting"
+      },
+      "total_retries": {
+        "name": "Totaal aantal retries"
+      },
+      "reconnect_count": {
+        "name": "Aantal reconnects"
+      },
+      "consecutive_failures": {
+        "name": "Opeenvolgende fouten"
+      },
+      "read_time": {
+        "name": "Modbus-leestijd"
+      },
+      "connect_time": {
+        "name": "TCP-verbindingsduur"
+      },
+      "average_poll_time": {
+        "name": "Gemiddelde pollduur"
+      },
+      "min_poll_time": {
+        "name": "Minimale pollduur"
+      },
+      "max_poll_time": {
+        "name": "Maximale pollduur"
+      },
+      "connected_since": {
+        "name": "Verbonden sinds"
+      },
+      "connection_uptime": {
+        "name": "Huidige verbindingstijd"
+      },
+      "longest_connection": {
+        "name": "Langste verbinding"
+      },
+      "last_disconnect": {
+        "name": "Laatste verbreking"
+      },
+      "last_reconnect": {
+        "name": "Laatste herverbinding"
+      },
+      "total_downtime": {
+        "name": "Totale uitvaltijd"
+      },
+      "availability": {
+        "name": "Beschikbaarheid verbinding"
+      },
+      "health_score": {
+        "name": "Gezondheidsscore verbinding"
+      },
+      "disconnect_count": {
+        "name": "Aantal verbroken verbindingen"
+      },
+      "pv_power_1": {
+        "name": "PV1-vermogen"
+      },
+      "pv_power_2": {
+        "name": "PV2-vermogen"
+      },
+      "pv_voltage_3": {
+        "name": "PV3-spanning"
+      },
+      "pv_current_3": {
+        "name": "PV3-stroom"
+      },
+      "pv_power_3": {
+        "name": "PV3-vermogen"
+      },
+      "pv_voltage_4": {
+        "name": "PV4-spanning"
+      },
+      "pv_current_4": {
+        "name": "PV4-stroom"
+      },
+      "pv_power_4": {
+        "name": "PV4-vermogen"
+      },
+      "pv_energy_total": {
+        "name": "PV-opbrengst totaal"
+      },
+      "pv_energy_month": {
+        "name": "PV-opbrengst deze maand"
+      },
+      "pv_energy_today": {
+        "name": "PV-opbrengst vandaag"
+      },
+      "pv_energy_year": {
+        "name": "PV-opbrengst dit jaar"
+      },
+      "pv_alarm_code": {
+        "name": "PV-alarmcode"
+      },
+      "pv_bus_voltage": {
+        "name": "PV-busspanning"
+      },
+      "setting_overcharge_soc": {
+        "name": "🔴 Overlaad-SOC"
+      },
+      "setting_overdischarge_soc": {
+        "name": "🟡 Minimum batterij-SOC"
+      },
+      "setting_force_charge_soc": {
+        "name": "🟡 Force-charge-SOC"
+      },
+      "setting_reserve_soc": {
+        "name": "🟢 Reserve-SOC"
+      },
+      "setting_force_charge_power_limit": {
+        "name": "🟡 Force-charge vermogenslimiet"
+      },
+      "setting_self_use_mode": {
+        "name": "🟢 Zelfverbruikmodus"
+      },
+      "setting_time_of_use_mode": {
+        "name": "🟢 Nethandelschema / Time-of-use"
+      },
+      "setting_off_grid_mode": {
+        "name": "🟡 Off-gridmodus"
+      },
+      "setting_reserve_battery_mode": {
+        "name": "🟢 Reservebatterijmodus"
+      },
+      "setting_allow_grid_charge": {
+        "name": "🟡 Laden vanuit net toestaan"
+      },
+      "setting_feed_in_priority_mode": {
+        "name": "🟢 Terugleverprioriteit"
+      },
+      "setting_off_grid_overdischarge_soc": {
+        "name": "🟡 Minimum-SOC off-grid"
+      },
+      "setting_time_charge_current": {
+        "name": "🟡 Geplande laadstroom"
+      },
+      "setting_time_discharge_current": {
+        "name": "🟡 Geplande ontlaadstroom"
+      },
+      "setting_charge_start_1": {
+        "name": "🟢 Laadslot 1 start"
+      },
+      "setting_charge_end_1": {
+        "name": "🟢 Laadslot 1 einde"
+      },
+      "setting_discharge_start_1": {
+        "name": "🟢 Ontlaadslot 1 start"
+      },
+      "setting_discharge_end_1": {
+        "name": "🟢 Ontlaadslot 1 einde"
+      },
+      "setting_charge_start_2": {
+        "name": "🟢 Laadslot 2 start"
+      },
+      "setting_charge_end_2": {
+        "name": "🟢 Laadslot 2 einde"
+      },
+      "setting_discharge_start_2": {
+        "name": "🟢 Ontlaadslot 2 start"
+      },
+      "setting_discharge_end_2": {
+        "name": "🟢 Ontlaadslot 2 einde"
+      },
+      "setting_charge_start_3": {
+        "name": "🟢 Laadslot 3 start"
+      },
+      "setting_charge_end_3": {
+        "name": "🟢 Laadslot 3 einde"
+      },
+      "setting_discharge_start_3": {
+        "name": "🟢 Ontlaadslot 3 start"
+      },
+      "setting_discharge_end_3": {
+        "name": "🟢 Ontlaadslot 3 einde"
+      },
+      "settings_status": {
+        "name": "Status instellingen uitlezen"
+      },
+      "data_quality": {
+        "name": "Datakwaliteit"
+      }
+    },
+    "switch": {
+      "ble_paused": {
+        "name": "Bluetooth gepauzeerd"
+      }
     }
   },
   "exceptions": {

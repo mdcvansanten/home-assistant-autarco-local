@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 import voluptuous as vol
@@ -14,6 +15,13 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_BATTERY_SOC_ENTITY,
+    CONF_BLE_ADDRESS,
+    CONF_TRANSPORT,
+    CONF_RUNTIME_VALIDATED,
+    TRANSPORT_TCP,
+    TRANSPORT_BLE,
+    TRANSPORT_BLE_TCP,
+    BLE_TRANSPORTS,
     CONF_DEVICE_ID,
     CONF_RETRIES,
     CONF_SCAN_INTERVAL,
@@ -55,8 +63,10 @@ PIN_STATUS_FIELD = "settings_pin_status"
 def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
     """Normalize selector values before storing or validating them."""
     return {
+        CONF_TRANSPORT: str(user_input.get(CONF_TRANSPORT, TRANSPORT_TCP)),
+        CONF_BLE_ADDRESS: str(user_input.get(CONF_BLE_ADDRESS, "")).strip().upper(),
         CONF_NAME: str(user_input[CONF_NAME]).strip() or DEFAULT_NAME,
-        CONF_HOST: str(user_input[CONF_HOST]).strip(),
+        CONF_HOST: str(user_input.get(CONF_HOST, "")).strip(),
         CONF_PORT: int(user_input[CONF_PORT]),
         CONF_DEVICE_ID: int(user_input[CONF_DEVICE_ID]),
         CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
@@ -65,16 +75,72 @@ def _normalize_input(user_input: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _validate_input(hass, data: dict[str, Any]) -> None:
+def _connection_id(data: dict[str, Any]) -> str:
+    if data.get(CONF_TRANSPORT) in BLE_TRANSPORTS:
+        return f"ble:{data[CONF_BLE_ADDRESS]}"
+    return f"{data[CONF_HOST]}:{data[CONF_PORT]}"
+
+
+async def _validate_input(hass, data: dict[str, Any], entry=None) -> None:
     """Validate user input with a read-only Modbus request."""
+    is_ble = data.get(CONF_TRANSPORT) in BLE_TRANSPORTS
+    is_failover = data.get(CONF_TRANSPORT) == TRANSPORT_BLE_TCP
+    if data.get(CONF_TRANSPORT) not in (TRANSPORT_TCP, *BLE_TRANSPORTS):
+        raise AutarcoConnectionError("Onbekende verbinding")
+    if is_ble and not re.fullmatch(r"(?:[0-9A-F]{2}:){5}[0-9A-F]{2}", data[CONF_BLE_ADDRESS]):
+        raise AutarcoConnectionError("Vul een geldig Bluetooth-adres in")
+    if (not is_ble or is_failover) and not data[CONF_HOST]:
+        raise AutarcoConnectionError("Vul het IP-adres van de TCP-logger in")
     settings = AutarcoConnectionSettings(
-        host=data[CONF_HOST],
+        host=data[CONF_BLE_ADDRESS] if is_ble else data[CONF_HOST],
         port=data[CONF_PORT],
         device_id=data[CONF_DEVICE_ID],
         timeout=data[CONF_TIMEOUT],
         retries=data[CONF_RETRIES],
     )
-    await hass.async_add_executor_job(AutarcoModbusClient(settings).validate)
+    from .ble_client import AutarcoBleClient
+    from .failover_client import AutarcoFailoverClient
+
+    existing = getattr(getattr(entry, "runtime_data", None), "client", None)
+    if isinstance(existing, AutarcoFailoverClient):
+        existing_ble, existing_tcp = existing.ble, existing.tcp
+    elif isinstance(existing, AutarcoBleClient):
+        existing_ble, existing_tcp = existing, None
+    else:
+        existing_ble, existing_tcp = None, existing
+
+    def tcp_client(tcp_settings):
+        # A logger may only process one TCP session. The existing client's
+        # validation shares its poll lock/socket rather than opening a rival.
+        if isinstance(existing_tcp, AutarcoModbusClient) and all(
+            getattr(existing_tcp._settings, key) == getattr(tcp_settings, key)
+            for key in ("host", "port", "device_id")
+        ):
+            return existing_tcp
+        return AutarcoModbusClient(tcp_settings)
+
+    if is_ble:
+        same_ble = existing_ble is not None and all(
+            getattr(existing_ble._settings, key) == getattr(settings, key)
+            for key in ("host", "device_id")
+        )
+        primary = existing_ble if same_ble else AutarcoBleClient(hass, settings)
+        try:
+            await hass.async_add_executor_job(primary.validate)
+        except AutarcoConnectionError as ble_error:
+            if not is_failover:
+                raise
+            tcp_settings = AutarcoConnectionSettings(
+                data[CONF_HOST], settings.port, settings.device_id, settings.timeout, settings.retries
+            )
+            try:
+                await hass.async_add_executor_job(tcp_client(tcp_settings).validate)
+            except AutarcoConnectionError as tcp_error:
+                raise AutarcoConnectionError(
+                    f"Bluetooth: {ble_error}; wifi/TCP: {tcp_error}"
+                ) from tcp_error
+    else:
+        await hass.async_add_executor_job(tcp_client(settings).validate)
 
 
 def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
@@ -83,7 +149,15 @@ def _get_schema(defaults: dict[str, Any] | None = None) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(CONF_NAME, default=defaults.get(CONF_NAME, DEFAULT_NAME)): selector.TextSelector(),
-            vol.Required(CONF_HOST, default=defaults.get(CONF_HOST, "")): selector.TextSelector(
+            vol.Required(CONF_TRANSPORT, default=defaults.get(CONF_TRANSPORT, TRANSPORT_TCP)): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=[
+                    {"value": TRANSPORT_BLE_TCP, "label": "Bluetooth met wifi-terugval (beta)"},
+                    {"value": TRANSPORT_TCP, "label": "Modbus TCP"},
+                    {"value": TRANSPORT_BLE, "label": "Bluetooth LE (beta)"},
+                ])
+            ),
+            vol.Optional(CONF_BLE_ADDRESS, default=defaults.get(CONF_BLE_ADDRESS, "")): selector.TextSelector(),
+            vol.Optional(CONF_HOST, default=defaults.get(CONF_HOST, "")): selector.TextSelector(
                 selector.TextSelectorConfig(type="text")
             ),
             vol.Required(CONF_PORT, default=defaults.get(CONF_PORT, DEFAULT_PORT)): selector.NumberSelector(
@@ -143,7 +217,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             data = _normalize_input(user_input)
-            await self.async_set_unique_id(f"{data[CONF_HOST]}:{data[CONF_PORT]}")
+            await self.async_set_unique_id(_connection_id(data))
             self._abort_if_unique_id_configured()
             try:
                 await _validate_input(self.hass, data)
@@ -175,7 +249,7 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             data = _normalize_input(user_input)
             try:
-                await _validate_input(self.hass, data)
+                await _validate_input(self.hass, data, entry)
             except AutarcoConnectionError as err:
                 _LOGGER.warning("Kan Autarco tijdens herconfiguratie niet bereiken: %s", err)
                 errors["base"] = "cannot_connect"
@@ -183,10 +257,17 @@ class AutarcoLocalConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Onverwachte fout tijdens Autarco-herconfiguratie")
                 errors["base"] = "unknown"
             else:
+                options = dict(entry.options)
+                changed_route = any(entry.data.get(key) != data.get(key) for key in (
+                    CONF_TRANSPORT, CONF_BLE_ADDRESS, CONF_HOST, CONF_PORT, CONF_DEVICE_ID
+                ))
+                if changed_route:
+                    options[CONF_RUNTIME_VALIDATED] = False
                 return self.async_update_reload_and_abort(
                     entry,
-                    unique_id=f"{data[CONF_HOST]}:{data[CONF_PORT]}",
+                    unique_id=_connection_id(data),
                     data=data,
+                    options=options,
                 )
         return self.async_show_form(
             step_id="reconfigure",
@@ -227,6 +308,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             vol.Optional(PIN_STATUS_FIELD, default=status): self._readonly_text(),
             vol.Optional(NEW_PIN_FIELD, default=""): self._password_text(),
             vol.Optional(CLEAR_PIN_FIELD, default=False): selector.BooleanSelector(),
+            vol.Optional(CONF_RUNTIME_VALIDATED, default=self.config_entry.options.get(CONF_RUNTIME_VALIDATED, False)): selector.BooleanSelector(),
         }
         current_soc_entity = self.config_entry.options.get(CONF_BATTERY_SOC_ENTITY)
         if current_soc_entity:
@@ -247,6 +329,7 @@ class AutarcoLocalOptionsFlow(OptionsFlow):
             options = dict(self.config_entry.options)
             new_pin = str(user_input.get(NEW_PIN_FIELD, "")).strip()
             clear_pin = bool(user_input.get(CLEAR_PIN_FIELD, False))
+            options[CONF_RUNTIME_VALIDATED] = bool(user_input.get(CONF_RUNTIME_VALIDATED, False))
             battery_soc_entity = str(
                 user_input.get(CONF_BATTERY_SOC_ENTITY, "") or ""
             ).strip()

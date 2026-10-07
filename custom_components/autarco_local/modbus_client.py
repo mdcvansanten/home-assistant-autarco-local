@@ -55,6 +55,7 @@ class AutarcoReadResult:
     unsupported_blocks: tuple[str, ...]
     reconnects: int
     reconnect_reason: str | None
+    source_transport: str = "tcp"
 
 
 @dataclass(slots=True, frozen=True)
@@ -64,6 +65,7 @@ class AutarcoSettingsReadResult:
     registers: dict[int, int]
     read_duration_ms: float
     unsupported_blocks: tuple[str, ...]
+    source_transport: str = "tcp"
 
 
 @dataclass(slots=True, frozen=True)
@@ -205,15 +207,12 @@ class AutarcoModbusClient:
         )
 
     def validate(self) -> None:
-        """Validate settings with one read-only request."""
+        """Validate under the poll lock, reusing an established logger socket."""
         with self._lock:
-            temporary = self._new_client()
+            was_connected = self._client is not None and self._client.connected
             try:
-                if not temporary.connect():
-                    raise AutarcoConnectionError(
-                        f"Geen verbinding met {self._settings.host}:{self._settings.port}"
-                    )
-                result = temporary.read_input_registers(
+                self._ensure_connected_locked()
+                result = self._client.read_input_registers(
                     VALIDATION_REGISTER_START,
                     count=VALIDATION_REGISTER_COUNT,
                     device_id=self._settings.device_id,
@@ -223,11 +222,17 @@ class AutarcoModbusClient:
                 if not getattr(result, "registers", None):
                     raise AutarcoConnectionError("Geen registerwaarden ontvangen")
             except AutarcoConnectionError:
+                self._disconnect_locked()
                 raise
             except (ModbusException, OSError, TimeoutError) as err:
-                raise AutarcoConnectionError(str(err)) from err
+                self._disconnect_locked()
+                raise AutarcoConnectionError(
+                    f"Modbus-leestest op {self._settings.host}:{self._settings.port} "
+                    f"(Device-ID {self._settings.device_id}): {err}"
+                ) from err
             finally:
-                temporary.close()
+                if not was_connected:
+                    self._disconnect_locked()
 
     def read_all(self) -> AutarcoReadResult:
         """Read all known runtime registers, retrying through clean reconnects."""

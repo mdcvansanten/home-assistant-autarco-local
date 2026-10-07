@@ -11,6 +11,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
     async_add_entities([
         ConnectionSensor(coordinator, entry),
         PVProductionSensor(coordinator, entry),
+        EmsDataReadySensor(coordinator, entry),
     ])
 
 
@@ -23,7 +24,7 @@ class BaseBinarySensor(CoordinatorEntity, BinarySensorEntity):
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
             manufacturer="Autarco",
-            model="S2.LH-MII (Modbus TCP)",
+            model="S2.LH-MII (local Modbus)",
         )
 
 
@@ -34,6 +35,10 @@ class ConnectionSensor(BaseBinarySensor):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_connection"
+
+    @property
+    def available(self):
+        return True
 
     @property
     def is_on(self):
@@ -54,8 +59,35 @@ class PVProductionSensor(BaseBinarySensor):
         self._attr_unique_id = f"{entry.entry_id}_pv_production"
 
     @property
+    def available(self):
+        return super().available and self.coordinator.data_quality in ("live", "partial")
+
+    @property
     def is_on(self):
         data = self.coordinator.data or {}
         if 33057 not in data or 33058 not in data:
             return None
         return ((data[33057] << 16) | data[33058]) > 0
+
+
+class EmsDataReadySensor(BaseBinarySensor):
+    """Gate validated, fresh EMS telemetry; this grants no write access."""
+
+    _attr_translation_key = "ems_data_ready"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_ems_data_ready"
+
+    @property
+    def available(self):
+        return True
+
+    @property
+    def is_on(self):
+        return self.coordinator.ems_data_ready
+
+    @property
+    def extra_state_attributes(self):
+        return {"control_ready": False, "data_quality": self.coordinator.data_quality,
+                "scope": "telemetry only; no automated writes"}
